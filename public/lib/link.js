@@ -38,6 +38,14 @@ async function run([factory, wasm], args, files, out) {
   return m.FS.readFile(out);
 }
 
+// run GNU ld or objcopy on in-memory files: -> the bytes of the file `out` it wrote
+export async function ld(args, files, out) { return run((await loadedTools()).ld, args, files, out); }
+export async function objcopy(args, files, out) { return run((await loadedTools()).oc, args, files, out); }
+async function loadedTools() {
+  const t = await (toolsPromise || loadTools());
+  return t;
+}
+
 const hx = (n) => '0x' + (n >>> 0).toString(16);
 export function linkerScript({ flashStart, flashLength, ramStart, ramLength, trampoline }) {
   return `MEMORY {

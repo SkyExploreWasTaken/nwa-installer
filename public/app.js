@@ -5,6 +5,7 @@ import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall, mb } from './lib/install.js';
 import { parseStorage, buildStorage } from './lib/storage.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
+import { initNumPlay } from './numplay-ui.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -144,10 +145,10 @@ drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.ad
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
 
-async function addFiles(list) {
+async function addFiles(list, extra = {}) {
   for (const f of list) {
     if (!/\.nwa$/i.test(f.name)) { log(f.name + ': not a .nwa file, skipped'); continue; }
-    const item = { file: f.name, name: f.name.replace(/\.nwa$/i, ''), nwa: new Uint8Array(await f.arrayBuffer()), size: null };
+    const item = { file: f.name, name: f.name.replace(/\.nwa$/i, ''), nwa: new Uint8Array(await f.arrayBuffer()), size: null, ...extra };
     st.queue.push(item);
     render();
     inspect(item);
@@ -193,7 +194,7 @@ function render() {
   $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !on;
   $('#info').hidden = !on;
   $('#connect').textContent = on ? 'Reconnect' : 'Connect calculator';
-  for (const b of document.querySelectorAll('#s-apps button, #s-new button, #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on);
+  for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on);
   if (!on) return;
   const i = st.info;
   renderFirmware();
@@ -269,6 +270,7 @@ function render() {
     : !L.startsOk ? 'The last app would start past the app area, where the calculator does not look. Move the biggest app last.'
     : `Writes ${kb(L.adding + SECTOR)} from ${hex(i.appsStart + L.kept)}.`;
   $('#install').disabled = st.busy || !L.ready || !L.fits || !L.startsOk;
+  numplay.render();
 }
 
 // ------------------------------------------------------------------ installing
@@ -426,30 +428,21 @@ $('#fw-install').addEventListener('click', async () => {
   });
 });
 
-// ------------------------------------------------------------------ from the NumPlay builder
-// /numplay/ (NumPlay Studio, with numplay-bridge.js) keeps the last .nwa it made in IndexedDB: opened with ?numplay,
-// this page puts it in the apps to install
-function takeHandoff() {
-  return new Promise((ok) => {
-    const open = indexedDB.open('nwa-installer', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('handoff');
-    open.onerror = () => ok(null);
-    open.onsuccess = () => {
-      const db = open.result, tx = db.transaction('handoff', 'readwrite'), store = tx.objectStore('handoff');
-      const get = store.get('latest');
-      get.onsuccess = () => { store.delete('latest'); ok(get.result || null); };
-      tx.oncomplete = () => db.close();
-    };
-  });
-}
-if (new URLSearchParams(location.search).has('numplay')) {
-  takeHandoff().then((h) => {
-    if (!h) return;
-    addFiles([new File([h.bytes], h.name)]);
-    log(`${h.name} from the NumPlay builder is ready to install${st.info ? '' : ': connect the calculator'}`);
-    history.replaceState(null, '', location.pathname);
-  });
-}
+// ------------------------------------------------------------------ the NumPlay builder (numplay-ui.js)
+const numplay = initNumPlay({
+  log,
+  // the space a NumPlay can take: what the apps to install leave free (with the options as set), its own part aside
+  free: () => {
+    if (!st.info) return null;
+    const L = layout(), others = st.queue.filter((q) => !q.numplay).reduce((n, q) => n + (q.size ? sectors(q.size) : 0), 0);
+    return L.total - L.kept - others;
+  },
+  // put what it made in the apps to install, in place of the NumPlay made before
+  add: async (bytes, name) => {
+    st.queue = st.queue.filter((q) => !q.numplay);
+    await addFiles([new File([bytes], name + '.nwa')], { numplay: true });
+  },
+});
 
 // a calculator this page was allowed to use before: connect straight away
 if (!MOCK) navigator.usb?.getDevices().then((ds) => {

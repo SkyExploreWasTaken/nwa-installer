@@ -6,8 +6,8 @@ everything runs on your computer: the page talks to the calculator over WebUSB a
 - **Install apps**, keeping the ones already on the calculator (new apps go after them) or replacing them all
 - **Nwagra** (Enlarged Extra Apps): lets the last app run past the app area to the end of the flash, for about
   6 MB of apps instead of about 2 MB (6.5 MB on Epsilon 26)
-- **Build a NumPlay**: pick games in [NumPlay](https://github.com/Mason363/NumPlay) Studio, add your own apps as
-  games of their own, and install the NumPlay.nwa you made in one go
+- **Build a NumPlay**: pick games from [NumPlay](https://github.com/Mason363/NumPlay)'s launcher and games, plus
+  apps of your own as games like the others, and install it in one go
 - **Update Epsilon** from NumWorks, keeping your Python scripts, and move the calculator to slot A (what Nwagra needs)
 - **Back up** the app area and the calculator's files, and restore the app area
 - Shows the calculator's model, software, app space and the apps on it
@@ -35,14 +35,16 @@ Only one tab or program can use the calculator at a time. If connecting fails, c
 (like NumWorks' own installer), unplug the calculator, plug it back in and try again.
 
 ## NumPlay builder
-**Build a NumPlay** opens [NumPlay Studio](https://mason363.github.io/NumPlay/customize/) at
-http://localhost:8642/numplay/, served through the local server: it's fetched from NumPlay's site and kept in
-`.cache/` so it works offline after the first time. A bar on top adds what this installer brings:
+**Build a NumPlay** (in step 3) makes one app holding the games you pick, with
+[NumPlay](https://github.com/Mason363/NumPlay)'s launcher. Search the games, sort them by popularity, name or
+size, and pick as many as fit: the page shows how much space they take against what's free with your install
+options (turn on Nwagra for the big games). Choose the launcher's language, its icon and name, and whether it opens
+straight away or hides behind the Matrices app with a secret. **Add to the list** links it right there, the way
+NumPlay Studio does, and puts it in the apps to install.
 
-- the `.nwa` apps in `extra/` are offered as games of their own (and added when the page opens). If one doesn't
-  fit, pick a bigger space for apps in Studio (Epsilon 26 or Nwagra) or take games out.
-- each NumPlay.nwa you make is downloaded as usual and handed to the installer: **Install on the calculator** opens
-  it there, ready to install.
+The `.nwa` apps in `extra/` (next to `server.js`) show up among the games, named after their files: that's how
+FNAF Speed gets in. NumPlay's kit (its launcher's and games' objects) is fetched from NumPlay's site through the
+local server and kept in `.cache/`, so the builder works offline after the first time.
 
 ## Epsilon updates
 The **Calculator software** section installs NumWorks' official Epsilon, the latest one my.numworks.com offers for
@@ -63,11 +65,12 @@ files is downloaded first.
 
 ## How it works
 ```
-server.js            the local server: the page, firmware downloads, the NumPlay builder
-numplay.js           serves NumPlay Studio from its site (kept in .cache/), with public/numplay-bridge.js added
+server.js            the local server: the page, firmware downloads, NumPlay's files
+numplay.js           NumPlay's kit from its site (kept in .cache/), and the apps in extra/
 public/
   index.html, app.js, style.css    the page
-  numplay-bridge.js  what the installer adds to NumPlay Studio
+  numplay-ui.js      the NumPlay builder
+  lib/numplay.js     links a NumPlay.nwa from NumPlay's kit
   lib/dfu.js         USB DFU with ST's DfuSe commands over WebUSB: read, erase, write, restart
   lib/calc.js        the calculator's software headers and its installed apps
   lib/link.js        links a .nwa for the address it will sit at (GNU ld as WebAssembly, and eadk.o)
@@ -105,8 +108,8 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 ## License
 MIT for this installer's code. `public/vendor/ld.*` and `objcopy.*` are GNU binutils under the GPL (see
 [public/vendor/README.md](public/vendor/README.md)). `eadk.o` is NumWorks' and isn't in this repository:
-`npm run setup` takes it from their `nwlink` npm package. NumPlay Studio is Mason Chen's
-([NumPlay](https://github.com/Mason363/NumPlay), GPL-3.0); it isn't in this repository either, and the server
-fetches it from NumPlay's site.
+`npm run setup` takes it from their `nwlink` npm package. NumPlay's launcher, games and kit are
+Mason Chen's ([NumPlay](https://github.com/Mason363/NumPlay), GPL-3.0); they aren't in this repository either: the
+server fetches them from NumPlay's site.
 
 Not affiliated with NumWorks.

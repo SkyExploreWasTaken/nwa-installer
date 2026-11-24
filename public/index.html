@@ -67,11 +67,43 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0l-4 4m4-4l4 4M5 15v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg>
         <span>Drop .nwa files here or <label class="link">browse<input id="pick" type="file" accept=".nwa" multiple hidden></label></span>
       </div>
-      <a class="numplay-link" href="/numplay/">
+      <button id="np-open" class="numplay-link" type="button" aria-expanded="false" aria-controls="np">
         <span class="np-icon" aria-hidden="true">&#9654;</span>
-        <span><b>Build a NumPlay</b><span class="muted">Pick games in NumPlay Studio and make a NumPlay.nwa of your own. It comes back here to install.</span></span>
-        <span class="np-go" aria-hidden="true">&rarr;</span>
-      </a>
+        <span><b>Build a NumPlay</b><span class="muted">One app with the games you pick, from NumPlay's launcher and games.</span></span>
+        <span class="np-go" aria-hidden="true">&#8250;</span>
+      </button>
+      <div id="np" class="np" hidden>
+        <div class="np-tools">
+          <input id="np-search" type="search" placeholder="Search games" aria-label="Search games">
+          <select id="np-sort" aria-label="Order">
+            <option value="rank">Most popular</option>
+            <option value="name">Name</option>
+            <option value="small">Smallest first</option>
+            <option value="big">Biggest first</option>
+          </select>
+          <select id="np-lang" aria-label="Language"></select>
+        </div>
+        <p id="np-status" class="note"></p>
+        <div id="np-grid" class="np-grid" role="group" aria-label="Games"></div>
+
+        <div class="np-look">
+          <div>
+            <span class="k">Looks like</span>
+            <div id="np-variants" class="np-variants" role="radiogroup" aria-label="Icon"></div>
+          </div>
+          <label><span class="k">Name</span><input id="np-name" maxlength="20" value="NumPlay"></label>
+          <label><span class="k">Opens</span>
+            <select id="np-opens"><option value="numplay">Straight away</option><option value="matrices">As the Matrices app, with a secret</option></select></label>
+          <label id="np-secret-row" hidden><span class="k">Secret</span><select id="np-secret"></select></label>
+          <label class="np-check"><input type="checkbox" id="np-hint" checked> Show how to open the games</label>
+        </div>
+
+        <div class="install-row">
+          <span id="np-plan" class="muted"></span>
+          <button id="np-add" class="primary" disabled>Add to the list</button>
+        </div>
+        <p class="note credit">NumPlay's launcher and games are by Mason Chen: <a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a> (GPL-3.0). They're fetched from NumPlay's site and linked here.</p>
+      </div>
       <ul id="queue" class="apps queue"></ul>
 
       <div class="options">
