@@ -11,6 +11,10 @@ const numplay = require('./numplay.js');    // the NumPlay builder at /numplay/
 const numworks = require('./numworks.js');  // NumWorks' firmware at /api/firmware/
 
 const PORT = +(process.argv[2] || process.env.PORT || 8642);
+// host names the server answers to besides localhost, e.g. behind a reverse proxy with https (WebUSB needs a secure
+// context: localhost or https). ALLOWED_HOSTS=nwainstaller.example.com,other.example.com
+const ALLOWED_HOSTS = ['localhost', '127.0.0.1',
+  ...(process.env.ALLOWED_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)];
 const ROOT = path.join(__dirname, 'public');  // the page
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.md': 'text/plain; charset=utf-8',
@@ -41,7 +45,7 @@ function serveFile(req, res, pathname) {
 const server = http.createServer(async (req, res) => {
   // the page and its API answer only to this computer, and only to pages from this server
   const host = (req.headers.host || '').toLowerCase();
-  if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) { res.writeHead(403); return res.end(); }
+  if (!ALLOWED_HOSTS.includes(host.replace(/:\d+$/, ''))) { res.writeHead(403); return res.end(); }
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname.startsWith('/api/')) {

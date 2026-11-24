@@ -27,7 +27,9 @@ function account() {
   if (!fs.existsSync(ACCOUNT_FILE)) return null;
   let a;
   try { a = JSON.parse(fs.readFileSync(ACCOUNT_FILE, 'utf8')); } catch (e) {
-    throw new HttpError(500, 'numworks-account.json is not valid JSON: ' + e.message);
+    // JSON.parse's message can quote the file (the password with it): give only where the error is
+    const where = /at position \d+(?: \(line \d+ column \d+\))?/.exec(e.message);
+    throw new HttpError(500, 'numworks-account.json is not valid JSON' + (where ? ' (' + where[0] + ')' : ''));
   }
   if (!a || typeof a.email !== 'string' || typeof a.password !== 'string' || !a.email || !a.password)
     throw new HttpError(500, 'numworks-account.json needs an "email" and a "password"');
