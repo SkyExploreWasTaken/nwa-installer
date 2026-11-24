@@ -1,13 +1,16 @@
-// The installer's local web server: serves the page on http://localhost:8642 (localhost only), and fetches
-// NumWorks' official firmware for the page with your my.numworks.com session, kept in a file on this computer
-// (numworks-cookie.txt, see README). The cookie never goes to the page: only the firmware does.
+// The installer's local web server, for this computer only (http://localhost:8642):
+//  - the page, from public/
+//  - NumWorks' official firmware, fetched with your my.numworks.com session kept in numworks-cookie.txt (see
+//    README): the cookie never goes to the page, only the firmware does
+//  - the NumPlay builder at /numplay/ (numplay.js)
 //   node server.js [port]
 'use strict';
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path');
+const numplay = require('./numplay.js');  // the NumPlay builder at /numplay/
 
 const PORT = +(process.argv[2] || process.env.PORT || 8642);
-const ROOT = __dirname;
-const COOKIE_FILE = path.join(ROOT, 'numworks-cookie.txt');
+const ROOT = path.join(__dirname, 'public');  // the page
+const COOKIE_FILE = path.join(__dirname, 'numworks-cookie.txt');
 const NW = 'https://my.numworks.com';
 const MODELS = new Set(['N0100', 'N0110', 'N0115', 'N0120']);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -105,6 +108,7 @@ const server = http.createServer(async (req, res) => {
       return await firmware(req, res, m[1], m[2], url.searchParams.get('version'));
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    if (await numplay(req, res, url)) return;
     serveFile(req, res, url.pathname);
   } catch (e) {
     send(res, e.code >= 400 ? e.code : 502, { error: e.message });

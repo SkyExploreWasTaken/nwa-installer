@@ -1,6 +1,7 @@
 @echo off
-rem Serves the installer on http://localhost:8642 (WebUSB needs localhost or https). Chrome or Edge.
+rem Starts the installer on http://localhost:8642 and opens it. Use Chrome or Edge (they have WebUSB).
 cd /d "%~dp0"
-if not exist vendor\eadk.o node setup.js
+if not exist node_modules\nwlink if not exist ..\numworks\node_modules\nwlink call npm install
+if not exist public\vendor\eadk.o node tools\setup.js
 start "" http://localhost:8642/
 node server.js

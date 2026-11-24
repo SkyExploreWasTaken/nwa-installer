@@ -1,13 +1,13 @@
-// A pretend calculator for testing the page without one (index.html?mock): memory from test/mock/ (saved by
+// A pretend calculator for testing the page without one (index.html?mock): memory from dev/mock/ (saved by
 // dump-mock.mjs), reads and writes in memory only.
 import { State } from '../lib/dfu.js';
 export async function mockDevice() {
-  const meta = await (await fetch('test/mock/regions.json')).json();
+  const meta = await (await fetch('dev/mock/regions.json')).json();
   // the whole external flash, erased, with the saved regions in it; the saved RAM regions on their own
   const flash = { address: 0x90000000, data: new Uint8Array(0x800000).fill(0xff) };
   const regions = [flash];
   for (const r of meta.regions) {
-    const data = new Uint8Array(await (await fetch('test/mock/' + r.file)).arrayBuffer());
+    const data = new Uint8Array(await (await fetch('dev/mock/' + r.file)).arrayBuffer());
     if (r.address >= flash.address) flash.data.set(data, r.address - flash.address);
     else regions.push({ address: r.address, data });
   }

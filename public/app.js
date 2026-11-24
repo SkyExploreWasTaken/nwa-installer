@@ -1,6 +1,6 @@
 // The installer page: connect over WebUSB, show what's on the calculator, add .nwa files, install.
 import { Dfu } from './lib/dfu.js';
-import { readInfo, scanApps, parseAppHeader, hex, SECTOR } from './lib/calc.js';
+import { readInfo, scanApps, parseAppHeader, hex, SECTOR, SLOT_B } from './lib/calc.js';
 import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall, mb } from './lib/install.js';
 import { parseStorage, buildStorage } from './lib/storage.js';
@@ -51,7 +51,7 @@ if (!('usb' in navigator)) {
   $('#connect').disabled = true;
 }
 
-const MOCK = new URLSearchParams(location.search).has('mock');  // a pretend calculator, for testing (test/mockdfu.js)
+const MOCK = new URLSearchParams(location.search).has('mock');  // a pretend calculator, for testing (dev/mockdfu.js)
 
 $('#connect').addEventListener('click', () => job('Connecting', async () => {
   if (MOCK) return connect(null);
@@ -66,7 +66,7 @@ $('#connect').addEventListener('click', () => job('Connecting', async () => {
 async function connect(dev) {
   if (st.dfu) await st.dfu.close();
   st.dev = dev;
-  st.dfu = MOCK ? await (await import('./test/mockdfu.js')).mockDevice() : new Dfu(dev);
+  st.dfu = MOCK ? await (await import('./dev/mockdfu.js')).mockDevice() : new Dfu(dev);
   try {
     await st.dfu.open();
     if (MOCK) dev = { productName: st.dfu.productName };
@@ -89,7 +89,6 @@ async function rescan() {
   st.scan = await scanApps(st.dfu, i);
   const raw = await st.dfu.read(i.storageAddress, i.storageSize);
   st.files = parseStorage(raw);
-  st.storageRaw = raw;
   log(`${st.scan.apps.length} app(s) installed: ${st.scan.apps.map((a) => a.name).join(', ') || 'none'}`);
 }
 
@@ -155,29 +154,21 @@ async function addFiles(list) {
   }
 }
 
+// its name and size, from a trial link (for this calculator once connected, else for a typical one)
 async function inspect(item) {
   try {
     await loadTools();
     const i = st.info;
-    const r = await inspectNwa(item.nwa, { flashStart: i ? i.appsStart : 0x90000000, flashLength: 0x800000,
-      ramStart: i ? i.appsRamStart : 0x20000000, ramLength: i ? i.appsRamEnd - i.appsRamStart : 0x40000,
-      trampoline: i ? i.trampoline : 0x90010030 });
-    if (r.needsData && item.data) {
-      const r2 = await inspectNwaWithData(item);
-      Object.assign(item, r2);
-    } else Object.assign(item, { size: r.size, needsData: r.needsData, name: r.name || item.name });
-    item.error = null;
+    const mem = i ? { flashStart: i.appsStart, flashLength: 0x800000, ramStart: i.appsRamStart, ramLength: i.appsRamEnd - i.appsRamStart, trampoline: i.trampoline }
+      : { flashStart: 0x90200000, flashLength: 0x600000, ramStart: 0x20000000, ramLength: 0x40000, trampoline: 0x90010030 };
+    const r = await inspectNwa(item.nwa, mem, item.data);
+    Object.assign(item, { size: r.size, needsData: r.needsData, name: r.name || item.name, error: null });
     log(`${item.file}: "${item.name}", ${item.size ? kb(sectors(item.size)) + ' installed' : 'needs an external data file'}`);
   } catch (e) {
     item.error = String(e.message || e).split('\n')[0];
     log(item.file + ': ' + e.message);
   }
   render();
-}
-async function inspectNwaWithData(item) {
-  const { linkApp } = await import('./lib/link.js');
-  const bin = await linkApp(item.nwa, { flashStart: 0x90000000, flashLength: 0x800000, ramStart: 0x20000000, ramLength: 0x40000, trampoline: 0x90010030 }, item.data);
-  return { size: bin.length, needsData: false };
 }
 
 // ------------------------------------------------------------------ options and the space bar
@@ -280,7 +271,6 @@ function render() {
   $('#install').disabled = st.busy || !L.ready || !L.fits || !L.startsOk;
 }
 
-
 // ------------------------------------------------------------------ installing
 function confirmDialog(text) {
   return new Promise((ok) => {
@@ -332,15 +322,14 @@ async function finish() {
 // The local server (server.js) fetches NumWorks' official firmware with the session in numworks-cookie.txt.
 // Its .dfu holds both slots; as NumWorks' updater does, only the slot the calculator isn't running from can be
 // written (the part inside the memory its DFU interface shows), and it restarts on it.
-const SLOT_B_START = 0x90400000;
-const slotOf = (addr) => (addr >= SLOT_B_START ? 'B' : 'A');
+const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
 $('#fw-check').addEventListener('click', () => job('Checking for updates', async () => {
   st.fw = null;
   const s = MOCK ? { cookie: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup('Updates need this page served by server.js (npm start), not another web server.'); return; }
   if (!s.cookie) { fwSetup('Updates need your NumWorks session: see "Calculator software updates" in the README to make numworks-cookie.txt next to server.js, then check again.'); return; }
-  const r = await fetch(MOCK ? 'test/mock/fw.json' : `api/firmware/${st.info.model}.json`);
+  const r = await fetch(MOCK ? 'dev/mock/fw.json' : `api/firmware/${st.info.model}.json`);
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
   st.fw = j;
@@ -358,7 +347,7 @@ function renderFirmware() {
   const same = f.version === i.version && f.patch_level === i.patch;
   $('#fw-now').textContent = `Epsilon ${i.version} (${i.patch}), slot ${i.slot}`;
   $('#fw-new').textContent = `Epsilon ${f.version} (${f.patch_level})`;
-  const appsInB = st.scan.apps.some((a) => a.address + a.size > SLOT_B_START);
+  const appsInB = st.scan.apps.some((a) => a.address + a.size > SLOT_B);
   $('#fw-note').textContent = (same ? 'You have this version already. ' : '')
     + `It goes in slot ${target}, the one the calculator is not running, and the calculator restarts on it.`
     + (target === 'A' ? ' Slot A is the one Nwagra needs.' : ' To end up on slot A (for Nwagra), update a second time after this one.')
@@ -378,7 +367,7 @@ $('#fw-install').addEventListener('click', async () => {
     // 1. the firmware, from NumWorks through the local server
     log(`Downloading Epsilon ${f.version} for the ${i.model}…`);
     bar('Downloading')(0);
-    const r = await fetch(MOCK ? 'test/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}`);
+    const r = await fetch(MOCK ? 'dev/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}`);
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
     const elements = writableElements(parseDfuFile(new Uint8Array(await r.arrayBuffer())), st.dfu);
     if (!elements.length) throw new Error('Nothing in that firmware is for the part of the calculator that can be written now');
@@ -436,6 +425,31 @@ $('#fw-install').addEventListener('click', async () => {
     status(`Updated: Epsilon ${st.info.version}, slot ${st.info.slot}`, 'ok');
   });
 });
+
+// ------------------------------------------------------------------ from the NumPlay builder
+// /numplay/ (NumPlay Studio, with numplay-bridge.js) keeps the last .nwa it made in IndexedDB: opened with ?numplay,
+// this page puts it in the apps to install
+function takeHandoff() {
+  return new Promise((ok) => {
+    const open = indexedDB.open('nwa-installer', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('handoff');
+    open.onerror = () => ok(null);
+    open.onsuccess = () => {
+      const db = open.result, tx = db.transaction('handoff', 'readwrite'), store = tx.objectStore('handoff');
+      const get = store.get('latest');
+      get.onsuccess = () => { store.delete('latest'); ok(get.result || null); };
+      tx.oncomplete = () => db.close();
+    };
+  });
+}
+if (new URLSearchParams(location.search).has('numplay')) {
+  takeHandoff().then((h) => {
+    if (!h) return;
+    addFiles([new File([h.bytes], h.name)]);
+    log(`${h.name} from the NumPlay builder is ready to install${st.info ? '' : ': connect the calculator'}`);
+    history.replaceState(null, '', location.pathname);
+  });
+}
 
 // a calculator this page was allowed to use before: connect straight away
 if (!MOCK) navigator.usb?.getDevices().then((ds) => {

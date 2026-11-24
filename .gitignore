@@ -1,8 +1,12 @@
 # your NumWorks session: never commit it
 numworks-cookie.txt
 node_modules/
-vendor/eadk.o
-# saved copies of a calculator, and test apps
-test/mock/
-test/*.nwa
+# made by npm run setup from NumWorks' nwlink package
+public/vendor/eadk.o
+# NumPlay Studio, fetched and kept by the server; your extra apps for it
+.cache/
+extra/
+# saved copies of a calculator, apps and backups
+public/dev/mock/
+*.nwa
 *.bin

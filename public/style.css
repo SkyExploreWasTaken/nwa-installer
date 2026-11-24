@@ -192,3 +192,13 @@ dialog p { color: var(--muted); font-size: 14px; }
 .fw-cards .v { font-family: var(--mono); font-size: 13px; }
 .fw-cards .arrow { display: grid; place-items: center; color: var(--muted); font-size: 18px; }
 #fw-box .opt { margin-top: 10px; }
+
+/* NumPlay builder link */
+.numplay-link { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 12px 16px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--card-2); color: var(--text); text-decoration: none; transition: border-color .15s, background .15s; }
+.numplay-link:hover { border-color: var(--accent); background: var(--accent-soft); }
+.numplay-link > span:nth-child(2) { flex: 1; display: grid; font-size: 14px; }
+.numplay-link .muted { font-size: 13px; }
+.np-icon { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 13px;
+  background: linear-gradient(160deg, #6a5cff, #3d2fd6); flex: none; }
+.np-go { color: var(--muted); font-size: 18px; }

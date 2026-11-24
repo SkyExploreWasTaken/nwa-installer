@@ -104,10 +104,10 @@ export async function linkApp(nwa, mem, externalData) {
   return run(t.oc, ['--output-target', 'binary', 'in.elf', 'out.bin'], { 'in.elf': elf }, 'out.bin');
 }
 
-// the app's name and whether it needs an external data file, from a trial link
-export async function inspectNwa(nwa, mem) {
+// the app's name and size, and whether it needs an external data file, from a trial link
+export async function inspectNwa(nwa, mem, externalData) {
   try {
-    const bin = await linkApp(nwa, mem);
+    const bin = await linkApp(nwa, mem, externalData);
     const v = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
     const nameOff = v.getUint32(8, true);
     let name = '';
