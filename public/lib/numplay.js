@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Makes a NumPlay.nwa from NumPlay's kit, in the page: NumPlay's launcher and the games you pick, linked the way
 // NumPlay Studio links them. NumPlay (https://github.com/Mason363/NumPlay, GPL-3.0) is Mason Chen's: its kit (the
-// launcher's and games' objects, kit.json) and its apps.js (which turns a .nwa into a NumPlay game) are fetched from
-// NumPlay's site through the local server (server/numplay.js), not part of this repository.
+// launcher's and games' objects, kit.json), its apps.js (which turns a .nwa into a NumPlay game) and its pico.js (which
+// reads PICO-8 carts) are fetched from NumPlay's site through the local server (numplay.js), not part of this repository.
 import { ld, objcopy } from './link.js';
+import { MEGA_DRIVE, ROM_HEAD, romFrom, romSize, romTable } from './roms.js';
 
 export const KIT = '/numplay/kit/';
-const APPS_JS = '/numplay/apps.js';
+const APPS_JS = '/numplay/apps.js', PICO_JS = '/numplay/pico.js';
+export const MAX_CARTS = 64;                 // (NumPico holds 64 carts at most)
 export const MAX_GAMES = 96;                 // (NumPlay's launcher holds 96 games and apps at most)
 // the launcher's looks: its icon and name on the calculator
 export const VARIANTS = { NumPlay: 'NumPlay', 'NumPlay-Matrices': 'Matrices', 'NumPlay-Invisible': ' ' };
@@ -33,17 +35,20 @@ function fetchBytes(path) {
 }
 const fetchJson = (path) => fetch(path).then((r) => { if (!r.ok) throw new Error(path + ': HTTP ' + r.status); return r.json(); });
 
-let appsJs = null;
-function loadAppsJs() {
-  appsJs = appsJs || new Promise((ok, no) => {
+// NumPlay's own scripts, loaded as NumPlay Studio loads them: each sets a global (npApps, npPico)
+const scripts = {};
+function loadScript(src, global) {
+  scripts[src] = scripts[src] || new Promise((ok, no) => {
     const s = document.createElement('script');
-    s.src = APPS_JS;
-    s.onload = () => ok(window.npApps);
-    s.onerror = () => { appsJs = null; no(new Error('Could not load NumPlay\'s apps.js')); };
+    s.src = src;
+    s.onload = () => ok(window[global]);
+    s.onerror = () => { delete scripts[src]; s.remove(); no(new Error('Could not load NumPlay\'s ' + src.split('/').pop())); };
     document.head.appendChild(s);
   });
-  return appsJs;
+  return scripts[src];
 }
+const loadAppsJs = () => loadScript(APPS_JS, 'npApps');
+const loadPicoJs = () => loadScript(PICO_JS, 'npPico');
 
 // ------------------------------------------------------------------ small ELF objects
 // A relocatable ARM object with one section per entry, each with a global symbol at its start:
@@ -113,6 +118,10 @@ export class NumPlayKit {
 
   // the games you can pick: NumPlay's own, without the two that take your own files (Retro-Go, NumPico)
   games() { return this.en.games.filter((g) => !g.roms && !g.carts); }
+  // Retro-Go, the emulator that plays your Game Boy, NES and Sega games, and NumPico, which plays your PICO-8 carts
+  get retroGo() { return this.en.games.find((g) => g.roms) || null; }
+  get numPico() { return this.en.games.find((g) => g.carts) || null; }
+  get romSystems() { return (this.retroGo && this.retroGo.systems) || [1, 2, 3]; }
   game(id, lang = 'en') { const k = this.langs[lang] || this.en; return (k.byId && k.byId[id]) || this.en.byId[id]; }
   iconUrl(id) { return this.en.byId[id] && this.en.byId[id].icon ? KIT + 'icons/' + id + '.png' : null; }
   variantUrl(v) { return KIT + 'variants/' + v + '.png'; }
@@ -126,17 +135,39 @@ export class NumPlayKit {
     return this.langs[lang];
   }
 
-  // NumPlay's own bytes: with the library its games call, or only the launcher when the games are all big ones
-  launcherBytes(ids, lang = 'en') {
+  // NumPlay's own bytes: with the library its games (and Retro-Go) call, or only the launcher when the games are all
+  // big ones
+  launcherBytes(ids, roms, lang = 'en') {
     const k = this.langs[lang] || this.en;
-    return ids.some((id) => !this.en.byId[id].xl) ? k.base : k.baseAlone || k.base;
+    return ids.some((id) => !this.en.byId[id].xl) || roms.length ? k.base : k.baseAlone || k.base;
   }
-  // about what a NumPlay of these games and extra apps takes in the calculator's flash
-  estimate(ids, extras, lang = 'en') {
-    if (!ids.length && !extras.length) return 0;
-    return this.launcherBytes(ids, lang) + ids.reduce((n, id) => n + this.game(id, lang).flash, 0)
-      + extras.reduce((n, a) => n + a.flash, 0) + this.en.runtime;
+  // about what a NumPlay of these games, extra apps, ROMs and carts takes in the calculator's flash
+  estimate({ ids = [], extras = [], roms = [], carts = [], lang = 'en' }) {
+    const romBytes = roms.reduce((n, r) => n + r.flash, 0);
+    if (retroGoAlone(roms)) return (this.retroGo.appFlash || this.retroGo.flash) + ROM_HEAD + romBytes;
+    if (!ids.length && !extras.length && !roms.length && !carts.length) return 0;
+    let n = this.launcherBytes(ids, roms, lang) + ids.reduce((t, id) => t + this.game(id, lang).flash, 0)
+      + extras.reduce((t, a) => t + a.flash, 0) + this.en.runtime;
+    if (roms.length) n += this.game(this.retroGo.id, lang).flash + ROM_HEAD + romBytes;
+    if (carts.length) n += this.game(this.numPico.id, lang).flash + 12 + carts.reduce((t, c) => t + c.flash, 0);
+    return n;
   }
+
+  // ---------------------------------------------------------------- your own games, for Retro-Go and NumPico
+  // a Game Boy, NES or Sega game's file -> { sys, name, bytes, flash }
+  romFrom(bytes, fileName) {
+    const r = romFrom(bytes, fileName, this.romSystems);
+    return { ...r, flash: romSize(r) };
+  }
+  // a PICO-8 cart (.p8 or .p8.png) -> { name, title, rom, code, label, flash }, read by NumPlay's pico.js
+  async cartFrom(bytes, fileName) {
+    const P = await loadPicoJs();
+    let c;
+    try { c = await P.readCart(bytes, fileName); } catch (e) { throw new Error(fileName + ' isn\'t a PICO-8 cart NumPico can read'); }
+    return { ...c, title: new TextDecoder().decode(c.name) || 'cart', flash: P.cartBytes(c) };
+  }
+  // a cart's label as RGBA pixels (128 x 128), for a picture of it
+  async cartLabel(c) { return c.label ? (await loadPicoJs()).labelRGBA(c.label) : null; }
 
   // ---------------------------------------------------------------- your own apps as games of NumPlay
   // An app's .nwa becomes a NumPlay game the way NumPlay Studio makes one (its apps.js does the object work):
@@ -167,9 +198,14 @@ export class NumPlayKit {
   }
 
   // ---------------------------------------------------------------- linking a NumPlay
-  // ids: NumPlay games in the order the launcher shows them; extras: apps from extraFrom
-  async build({ ids, extras = [], lang = 'en', variant = 'NumPlay', name = 'NumPlay', matrices = false, hint = true, secret = 0 }) {
+  // ids: NumPlay games in the order the launcher shows them; extras: apps from extraFrom; roms: from romFrom, played
+  // by Retro-Go; carts: from cartFrom, played by NumPico. -> { bytes, name }: a NumPlay, or Retro-Go on its own when
+  // there's a Mega Drive game
+  async build({ ids, extras = [], roms = [], carts = [], lang = 'en', variant = 'NumPlay', name = 'NumPlay', matrices = false, hint = true, secret = 0 }) {
+    if (retroGoAlone(roms)) return { bytes: await this.buildRetroGo(roms), name: 'RetroGo' };
+    ids = ids.concat(roms.length ? [this.retroGo.id] : [], carts.length ? [this.numPico.id] : []);
     if (ids.length + extras.length > MAX_GAMES) throw new Error('NumPlay holds ' + MAX_GAMES + ' games and apps at most');
+    if (carts.length > MAX_CARTS) throw new Error('NumPico holds ' + MAX_CARTS + ' carts at most');
     if (!ids.length && !extras.length) throw new Error('Pick some games first');
     const k = lang === 'en' ? this.en : await this.language(lang);
     const dir = lang === 'en' ? '' : lang + '/';
@@ -184,6 +220,15 @@ export class NumPlayKit {
       files[a.id + '.o'] = a.obj;
       files[a.id + '-entry.o'] = a.entry;
       args.push(a.id + '.o', a.id + '-entry.o');
+    }
+    // the tables of your games, which the kit's script puts in Retro-Go's and NumPico's blocks
+    if (roms.length) {
+      files['roms.o'] = romObject(roms);
+      args.push('roms.o');
+    }
+    if (carts.length) {
+      files['carts.o'] = elfObject([{ section: '.rodata.np_carts', symbol: 'np_carts', data: (await loadPicoJs()).cartTable(carts), align: 4 }]);
+      args.push('carts.o');
     }
     const index = (id) => (k.byId[id] || this.en.byId[id]).index;
     const script = k.script.blocks ? k.script : this.en.script;
@@ -206,6 +251,14 @@ export class NumPlayKit {
     if (ram && tail === script.tail) throw new Error('This NumPlay kit has no arena for apps');
     files['numplay.ld'] = head + blocks.join('') + tail;
     const linked = await ld(args.concat(['-o', 'out.nwa']), files, 'out.nwa');
+    return { bytes: await objcopy(['--strip-unneeded', 'in.nwa', 'out.nwa'], { 'in.nwa': linked }, 'out.nwa'), name };
+  }
+
+  // Retro-Go as an app of its own with its table of games, linked as NumPlay's games/retrogo Makefile links RetroGo.nwa
+  async buildRetroGo(roms) {
+    const app = await fetchBytes(KIT + 'apps/RetroGo-app.o.gz');
+    const linked = await ld(['-r', '-T', 'roms.ld', 'app.o', 'roms.o', '-o', 'out.nwa'], { 'app.o': app, 'roms.o': romObject(roms),
+      'roms.ld': 'SECTIONS {\n  .rodata.np_roms : { KEEP(*(.rodata.np_roms)) np_retrogo_end = .; }\n}\n' }, 'out.nwa');
     return objcopy(['--strip-unneeded', 'in.nwa', 'out.nwa'], { 'in.nwa': linked }, 'out.nwa');
   }
 
@@ -215,6 +268,10 @@ export class NumPlayKit {
     return g && g.alone ? fetchBytes(KIT + 'apps/' + id + '.nwa.gz').then((bytes) => ({ bytes, file: g.alone.file })) : null;
   }
 }
+
+// with a Mega Drive game, Retro-Go goes on its own: inside NumPlay, the RAM those games need isn't there
+const retroGoAlone = (roms) => roms.some((r) => r.sys === MEGA_DRIVE);
+const romObject = (roms) => elfObject([{ section: '.rodata.np_roms', symbol: 'np_roms', data: romTable(roms), align: 4 }]);
 
 // an app's icon (RGB565 pixels) as an image URL
 function iconDataUrl(icon, A) {

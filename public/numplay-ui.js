@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The NumPlay builder in the installer page: pick games (and the extra apps the server offers, as games like the
-// others), choose the launcher's looks, and its NumPlay.nwa goes straight into the apps to install.
-import { NumPlayKit, VARIANTS, SECRETS, MAX_GAMES } from './lib/numplay.js';
+// others), add your own Game Boy, NES and Sega games for Retro-Go and PICO-8 carts for NumPico, choose the launcher's
+// looks, and its NumPlay.nwa goes straight into the apps to install.
+import { NumPlayKit, VARIANTS, SECRETS, MAX_GAMES, MAX_CARTS } from './lib/numplay.js';
+import { SYSTEMS, MEGA_DRIVE, extensions } from './lib/roms.js';
 import { mb } from './lib/install.js';
 
 const $ = (s) => document.querySelector(s);
@@ -10,7 +12,7 @@ const size = (n) => (n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : m
 const LANG_NAMES = { en: 'English', fr: 'Français', zh: '中文' };
 
 export function initNumPlay({ log, free, add }) {
-  const st = { kit: null, loading: null, picked: [], extras: [], lang: 'en', variant: 'NumPlay', busy: false };
+  const st = { kit: null, loading: null, picked: [], extras: [], roms: [], carts: [], lang: 'en', variant: 'NumPlay', busy: false };
   const tiles = new Map();  // id -> its button
 
   $('#np-open').addEventListener('click', async () => {
@@ -41,6 +43,7 @@ export function initNumPlay({ log, free, add }) {
       }
       SECRETS.forEach((s, i) => $('#np-secret').append(new Option(s, String(i))));
       for (const g of st.kit.games()) tiles.set(g.id, tile(g.id, g.title, st.kit.iconUrl(g.id), g.flash, g.xl ? 'big' : '', g.top, g.credit));
+      ownGames();
       log(`NumPlay ${st.kit.version}: ${st.kit.games().length} games`);
       status('');
       render();
@@ -63,6 +66,75 @@ export function initNumPlay({ log, free, add }) {
         log(name + ': ' + e.message);
       }
     }
+  }
+
+  // ---------------------------------------------------------------- your own games: Retro-Go's ROMs, NumPico's carts
+  function ownGames() {
+    const rg = st.kit.retroGo, pk = st.kit.numPico;
+    if (rg) {
+      const names = st.kit.romSystems.map((s) => SYSTEMS[s].name);
+      const all = names.slice(0, -1).join(', ') + ' and ' + names.at(-1);
+      $('#np-roms-what').textContent = rg.tagline ? 'Your ' + rg.tagline : 'Your ' + all + ' games';
+      $('#np-rom-file').accept = extensions(st.kit.romSystems).join(',');
+      $('#np-roms').title = [rg.title + ': ' + all, rg.credit].filter(Boolean).join('\n');
+      $('#np-roms').hidden = false;
+      dropOn($('#np-roms'), addRoms);
+      $('#np-rom-file').addEventListener('change', (e) => { addRoms([...e.target.files]); e.target.value = ''; });
+    }
+    if (pk) {
+      $('#np-carts').title = [pk.title, pk.credit].filter(Boolean).join('\n');
+      $('#np-carts').hidden = false;
+      dropOn($('#np-carts'), addCarts);
+      $('#np-cart-file').addEventListener('change', (e) => { addCarts([...e.target.files]); e.target.value = ''; });
+    }
+  }
+  function dropOn(box, add) {
+    box.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); box.classList.add('over'); });
+    box.addEventListener('dragleave', () => box.classList.remove('over'));
+    box.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); box.classList.remove('over'); add([...e.dataTransfer.files]); });
+  }
+
+  async function addRoms(files) {
+    for (const f of files) {
+      try {
+        const r = st.kit.romFrom(new Uint8Array(await f.arrayBuffer()), f.name);
+        if (r.sys === MEGA_DRIVE && !st.roms.some((x) => x.sys === MEGA_DRIVE))
+          status('With a Mega Drive game, you get Retro-Go on its own with your games: they need all of NumPlay\'s RAM.');
+        st.roms.push(r);
+      } catch (e) { status(f.name + ': ' + e.message); }
+    }
+    render();
+  }
+  async function addCarts(files) {
+    for (const f of files) {
+      if (st.carts.length >= MAX_CARTS) { status('NumPico holds ' + MAX_CARTS + ' carts at most'); break; }
+      try {
+        const c = await st.kit.cartFrom(new Uint8Array(await f.arrayBuffer()), f.name);
+        c.url = labelUrl(await st.kit.cartLabel(c));
+        st.carts.push(c);
+      } catch (e) { status(e.message); }
+    }
+    render();
+  }
+  function labelUrl(rgba) {
+    if (!rgba) return null;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    c.getContext('2d').putImageData(new ImageData(rgba, 128, 128), 0, 0);
+    return c.toDataURL('image/png');
+  }
+  // a game you added, as a chip: its picture or system, name, size, and a button to take it out
+  function chip(item, label, tag, picture, list) {
+    const li = el('li');
+    li.title = label;
+    if (picture) { const img = el('img'); img.src = picture; img.alt = ''; li.append(img); }
+    if (tag) li.append(el('span', 'tag', tag));
+    const x = el('button', '', '×');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Take out ' + label);
+    x.addEventListener('click', () => { list.splice(list.indexOf(item), 1); render(); });
+    li.append(el('span', '', label), el('span', 's', size(item.flash)), x);
+    return li;
   }
 
   // a game's button: its icon, name and size; its credit (from NumPlay's kit) when you hover it
@@ -119,10 +191,15 @@ export function initNumPlay({ log, free, add }) {
     for (const b of $('#np-variants').children) b.setAttribute('aria-checked', String(b.title === st.variant.replace('NumPlay-', '')));
     $('#np-secret-row').hidden = $('#np-opens').value !== 'matrices';
 
-    const n = st.picked.length, total = st.kit.estimate(pickedGames(), pickedExtras(), st.lang), room = free();
-    const over = room != null && total > room;
+    $('#np-rom-list').replaceChildren(...st.roms.map((r) => chip(r, r.name, SYSTEMS[r.sys].tag, null, st.roms)));
+    $('#np-cart-list').replaceChildren(...st.carts.map((c) => chip(c, c.title, c.url ? '' : 'P8', c.url, st.carts)));
+
+    const n = st.picked.length + st.roms.length + st.carts.length, room = free();
+    const total = st.kit.estimate({ ids: pickedGames(), extras: pickedExtras(), roms: st.roms, carts: st.carts, lang: st.lang });
+    const over = room != null && total > room, alone = st.roms.some((r) => r.sys === MEGA_DRIVE);
     $('#np-plan').textContent = !n ? 'No games picked yet.'
-      : `${n} game${n > 1 ? 's' : ''}, about ${size(total)}` + (room == null ? '' : over ? `: ${size(total - room)} more than the space left (${size(Math.max(0, room))}). Turn on Nwagra, or take games out.` : ` of the ${size(room)} free.`);
+      : (alone ? `Retro-Go with ${st.roms.length} game${st.roms.length > 1 ? 's' : ''}` : `${n} game${n > 1 ? 's' : ''}`) + `, about ${size(total)}`
+        + (room == null ? '' : over ? `: ${size(total - room)} more than the space left (${size(Math.max(0, room))}). Turn on Nwagra, or take games out.` : ` of the ${size(room)} free.`);
     $('#np-plan').classList.toggle('warn', over);
     $('#np-add').disabled = st.busy || !n || over;
   }
@@ -145,11 +222,12 @@ export function initNumPlay({ log, free, add }) {
     const name = $('#np-name').value.trim() || 'NumPlay';
     try {
       status('Linking your NumPlay…');
-      const bytes = await st.kit.build({ ids: pickedGames(), extras: pickedExtras(), lang: st.lang, variant: st.variant, name,
-        matrices: $('#np-opens').value === 'matrices', hint: $('#np-hint').checked, secret: +$('#np-secret').value });
-      await add(bytes, name.trim() ? name.replace(/[^\w.-]+/g, '') || 'NumPlay' : 'NumPlay');
-      log(`Made ${name} with ${st.picked.length} game(s): it's in the apps to install`);
-      status(`${name} is in the apps to install, below.`);
+      const out = await st.kit.build({ ids: pickedGames(), extras: pickedExtras(), roms: st.roms, carts: st.carts, lang: st.lang,
+        variant: st.variant, name, matrices: $('#np-opens').value === 'matrices', hint: $('#np-hint').checked, secret: +$('#np-secret').value });
+      await add(out.bytes, out.name.replace(/[^\w.-]+/g, '') || 'NumPlay');
+      const n = st.picked.length + st.roms.length + st.carts.length;
+      log(`Made ${out.name} with ${n} game(s): it's in the apps to install`);
+      status(`${out.name} is in the apps to install, below.`);
     } catch (e) {
       status('Couldn\'t make it: ' + e.message);
       log('NumPlay: ' + e.message);

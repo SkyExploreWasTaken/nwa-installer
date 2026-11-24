@@ -86,6 +86,21 @@
         <p id="np-status" class="note"></p>
         <div id="np-grid" class="np-grid" role="group" aria-label="Games"></div>
 
+        <div id="np-roms" class="np-own" hidden>
+          <div class="np-own-head">
+            <span><b>Retro-Go</b> <span id="np-roms-what" class="muted"></span></span>
+            <label class="link">Add games…<input id="np-rom-file" type="file" multiple hidden></label>
+          </div>
+          <ul id="np-rom-list" class="chips"></ul>
+        </div>
+        <div id="np-carts" class="np-own" hidden>
+          <div class="np-own-head">
+            <span><b>NumPico</b> <span class="muted">Your PICO-8 carts (.p8 or .p8.png)</span></span>
+            <label class="link">Add carts…<input id="np-cart-file" type="file" accept=".p8,.png" multiple hidden></label>
+          </div>
+          <ul id="np-cart-list" class="chips"></ul>
+        </div>
+
         <div class="np-look">
           <div>
             <span class="k">Looks like</span>
@@ -102,7 +117,8 @@
           <span id="np-plan" class="muted"></span>
           <button id="np-add" class="primary" disabled>Add to the list</button>
         </div>
-        <p class="note credit">NumPlay's launcher and games are by Mason Chen: <a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a> (GPL-3.0). They're fetched from NumPlay's site and linked here.</p>
+        <p class="note credit">NumPlay's launcher and games are by Mason Chen: <a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a> (GPL-3.0). Retro-Go by ducalex, NumPico with femto8 by Ben Baker. They're fetched from NumPlay's site and linked here.
+          Your own games and carts stay on this computer: bring only those you own.</p>
       </div>
       <ul id="queue" class="apps queue"></ul>
 

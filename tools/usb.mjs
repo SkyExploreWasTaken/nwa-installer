@@ -29,10 +29,16 @@ export async function openCalculator() {
   return { dev, dfu, info: await readInfo(dfu) };
 }
 
-// the linker, from public/vendor (npm run setup)
+// the linker, from public/vendor (npm run setup). ld.js and objcopy.js are CommonJS scripts in a folder of ES modules
+// (public/package.json), so they're run as CommonJS here rather than require()d
 export function loadLinker() {
   const v = (f) => repo('public/vendor/' + f);
-  setTools({ ld: [require(v('ld.js')), fs.readFileSync(v('ld.wasm'))], oc: [require(v('objcopy.js')), fs.readFileSync(v('objcopy.wasm'))],
+  const factory = (f) => {
+    const m = { exports: {} };
+    new Function('module', 'exports', 'require', '__filename', '__dirname', fs.readFileSync(v(f), 'utf8'))(m, m.exports, require, v(f), repo('public/vendor'));
+    return m.exports;
+  };
+  setTools({ ld: [factory('ld.js'), fs.readFileSync(v('ld.wasm'))], oc: [factory('objcopy.js'), fs.readFileSync(v('objcopy.wasm'))],
     eadk: new Uint8Array(fs.readFileSync(v('eadk.o'))) });
 }
 

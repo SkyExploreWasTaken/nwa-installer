@@ -7,7 +7,8 @@ everything runs on your computer: the page talks to the calculator over WebUSB a
 - **Nwagra** (Enlarged Extra Apps): lets the last app run past the app area to the end of the flash, for about
   6 MB of apps instead of about 2 MB (6.5 MB on Epsilon 26)
 - **Build a NumPlay**: pick games from [NumPlay](https://github.com/Mason363/NumPlay)'s launcher and games, plus
-  apps of your own as games like the others, and install it in one go
+  apps of your own as games like the others, your own Game Boy, NES and Sega games (Retro-Go) and PICO-8 carts
+  (NumPico), and install it in one go
 - **Update Epsilon** from NumWorks, keeping your Python scripts, and move the calculator to slot A (what Nwagra needs)
 - **Back up** the app area and the calculator's files, and restore the app area
 - Shows the calculator's model, software, app space and the apps on it
@@ -42,8 +43,15 @@ options (turn on Nwagra for the big games). Choose the launcher's language, its 
 straight away or hides behind the Matrices app with a secret. **Add to the list** links it right there, the way
 NumPlay Studio does, and puts it in the apps to install.
 
+**Your own games**: add Game Boy, Game Boy Color, NES, Master System, Game Gear, SG-1000, ColecoVision, Game & Watch
+and Mega Drive games to **Retro-Go**, and PICO-8 carts (`.p8` or `.p8.png`) to **NumPico** (64 at most): pick the
+files or drop them on their row. They go into the NumPlay as NumPlay Studio puts them there (a table of games in
+Retro-Go's block, of carts in NumPico's). With a Mega Drive game you get Retro-Go on its own instead, with all your
+games: those need all of NumPlay's RAM. Your files stay in the page, and this repository holds no games: bring only
+those you own.
+
 The `.nwa` apps in `extra/` (next to `server.js`) show up among the games, named after their files: that's how
-FNAF Speed gets in. NumPlay's kit (its launcher's and games' objects) is fetched from NumPlay's site through the
+FNAF Speed gets in. NumPlay's kit (its launcher's and games' objects), `apps.js` and `pico.js` are fetched from NumPlay's site through the
 local server and kept in `.cache/`, so the builder works offline after the first time.
 
 ## Epsilon updates
@@ -68,6 +76,7 @@ public/
   index.html, app.js, style.css    the page
   numplay-ui.js      the NumPlay builder
   lib/numplay.js     links a NumPlay.nwa from NumPlay's kit
+  lib/roms.js        your games for Retro-Go: read as it reads them, and its table of games
   lib/dfu.js         USB DFU with ST's DfuSe commands over WebUSB: read, erase, write, restart
   lib/calc.js        the calculator's software headers and its installed apps
   lib/link.js        links a .nwa for the address it will sit at (GNU ld as WebAssembly, and eadk.o)
@@ -105,9 +114,13 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 
 ## Credits
 - **[NumPlay](https://github.com/Mason363/NumPlay)** by Mason Chen and its contributors (GPL-3.0): the launcher and
-  the games of the NumPlay builder, the kit they come in, and `apps.js`, which turns a `.nwa` into a NumPlay game. The
-  builder links a NumPlay the way NumPlay Studio does. Each game's own credits are on its tile, and all of them
+  the games of the NumPlay builder, the kit they come in, `apps.js`, which turns a `.nwa` into a NumPlay game, and
+  `pico.js`, which reads PICO-8 carts. The builder links a NumPlay the way NumPlay Studio does, and `lib/roms.js` is
+  NumPlay Studio's code for Retro-Go's games (and its `tools/romtable.py`'s table), adapted. Each game's own credits are on its tile, and all of them
   (the original games, ports, fonts and engines) are in [NumPlay's README](https://github.com/Mason363/NumPlay#readme).
+- **Retro-Go** by ducalex ([retro-go](https://github.com/ducalex/retro-go)) and the emulators it's built on, ported
+  to the NumWorks by NumPlay; **NumPico** plays PICO-8 carts with [femto8](https://github.com/benbaker76/femto8) by
+  Ben Baker. *PICO-8* is Lexaloffle's. NumPlay's README credits them in full.
 - **[GNU binutils](https://www.gnu.org/software/binutils/)** (GPL-3.0-or-later): ld and objcopy, which link every app,
   built as WebAssembly by NumPlay.
 - **Nwagra** (Enlarged Extra Apps) was made by an anonymous author who can't be reached anymore, as their website
@@ -129,6 +142,6 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 Copyright (C) 2026 SkyExploreWasTaken. Free software under the GNU General Public License, version 3 or (at your
 option) any later version: see [LICENSE](LICENSE).
 
-Not in this repository, and under their own terms: NumPlay's kit (GPL-3.0, fetched from NumPlay's site when you use
-the builder), NumWorks' firmware and `eadk.o` (NumWorks', fetched or made on your computer), and the apps you put in
+Not in this repository, and under their own terms: NumPlay's kit, `apps.js` and `pico.js` (GPL-3.0, fetched from
+NumPlay's site when you use the builder), the games and carts you add, NumWorks' firmware and `eadk.o` (NumWorks', fetched or made on your computer), and the apps you put in
 `extra/`. `public/vendor/ld.*` and `objcopy.*` are GNU binutils (see [public/vendor/README.md](public/vendor/README.md)).

@@ -233,3 +233,15 @@ dialog p { color: var(--muted); font-size: 14px; }
 .np-check { display: flex !important; align-items: center; gap: 8px; }
 .credit a { color: var(--accent-2); }
 .np [hidden] { display: none !important; }
+.np-own { margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.np-own.over { border-color: var(--accent); background: var(--accent-soft); }
+.np-own-head .link { white-space: nowrap; }
+.np-own-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; }
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips:not(:empty) { margin-top: 8px; }
+.chips li { display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; background: var(--card); }
+.chips img { width: 22px; height: 22px; border-radius: 4px; image-rendering: pixelated; margin-left: -4px; }
+.chips .tag { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.chips .s { color: var(--muted); }
+.chips button { border: 0; background: none; padding: 0 6px; font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; }
+.chips button:hover { color: var(--text); }

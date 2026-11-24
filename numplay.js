@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // NumPlay's files for the page's NumPlay builder (public/lib/numplay.js). NumPlay (Mason363/NumPlay, GPL-3.0) isn't
-// part of this repository: its kit and apps.js are fetched from NumPlay's site when the page asks for them, and kept
+// part of this repository: its kit, apps.js and pico.js are fetched from NumPlay's site when the page asks for them, and kept
 // in .cache/numplay/ so the builder works offline after.
 //   /numplay/kit/...      -> https://mason363.github.io/NumPlay/customize/kit/...
 //   /numplay/apps.js      -> https://mason363.github.io/NumPlay/customize/apps.js
+//   /numplay/pico.js      -> https://mason363.github.io/NumPlay/customize/pico.js
 //   /numplay/extra/       -> more games for the builder: the .nwa apps in extra/ next to server.js
 'use strict';
 const https = require('https'), fs = require('fs'), path = require('path');
@@ -68,7 +69,7 @@ module.exports = async function numplay(req, res, url) {
     const file = path.join(EXTRA, name);
     if (!/^[^/\\]+\.nwa$/i.test(name) || !fs.existsSync(file)) reply(res, 404, 'Not found');
     else reply(res, 200, fs.readFileSync(file), 'application/octet-stream');
-  } else if ((rel === 'apps.js' || rel.startsWith('kit/')) && !rel.includes('..')) {
+  } else if ((rel === 'apps.js' || rel === 'pico.js' || rel.startsWith('kit/')) && !rel.includes('..')) {
     try {
       const body = await numplayFile(rel);
       if (!body) reply(res, 404, 'Not found');
