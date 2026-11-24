@@ -90,6 +90,30 @@
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </section>
 
+    <section id="s-fw" class="card" hidden>
+      <div class="card-head">
+        <span class="step">4</span>
+        <div><h2>Calculator software</h2><p class="muted">Official Epsilon from NumWorks, fetched by this computer's server with your NumWorks session.</p></div>
+        <button id="fw-check" class="ghost">Check for updates</button>
+      </div>
+      <div id="fw-box" class="fw" hidden>
+        <div class="fw-cards">
+          <div><span class="k">On the calculator</span><span id="fw-now" class="v"></span></div>
+          <div class="arrow" aria-hidden="true">&rarr;</div>
+          <div><span class="k">From NumWorks</span><span id="fw-new" class="v"></span></div>
+        </div>
+        <p id="fw-note" class="note"></p>
+        <label class="opt"><input type="checkbox" id="fw-keep" checked><span class="switch" aria-hidden="true"></span>
+          <span><b>Keep my Python scripts</b><span class="muted">Saves them (and downloads a backup of all files) before, puts them back after.</span></span></label>
+        <div class="install-row">
+          <span id="fw-plan" class="muted"></span>
+          <button id="fw-install" class="primary big" disabled>Update</button>
+        </div>
+        <div id="fw-progress" class="progress" hidden><div></div><span></span></div>
+      </div>
+      <p id="fw-setup" class="note" hidden></p>
+    </section>
+
     <details class="card log" open>
       <summary><h2>Log</h2></summary>
       <pre id="log"></pre>

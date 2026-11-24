@@ -3,7 +3,8 @@ import { Dfu } from './lib/dfu.js';
 import { readInfo, scanApps, parseAppHeader, hex, SECTOR } from './lib/calc.js';
 import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall, mb } from './lib/install.js';
-import { parseStorage } from './lib/storage.js';
+import { parseStorage, buildStorage } from './lib/storage.js';
+import { parseDfuFile, writableElements } from './lib/dfufile.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -15,8 +16,7 @@ function log(msg) {
   $('#log').scrollTop = 1e9;
 }
 function status(msg, kind = '') { const s = $('#status'); s.textContent = msg; s.className = kind || 'muted'; }
-function progress(p, label) {
-  const box = $('#progress');
+function progress(p, label, box = $('#progress')) {
   box.hidden = p == null;
   if (p == null) return;
   box.querySelector('div').style.width = (p * 100).toFixed(1) + '%';
@@ -199,12 +199,13 @@ function layout() {
 
 function render() {
   const on = !!st.info;
-  $('#s-apps').hidden = $('#s-new').hidden = !on;
+  $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !on;
   $('#info').hidden = !on;
   $('#connect').textContent = on ? 'Reconnect' : 'Connect calculator';
-  for (const b of document.querySelectorAll('#s-apps button, #s-new button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on);
+  for (const b of document.querySelectorAll('#s-apps button, #s-new button, #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on);
   if (!on) return;
   const i = st.info;
+  renderFirmware();
 
   const info = $('#info');
   info.textContent = '';
@@ -326,6 +327,115 @@ async function finish() {
   }
   setTimeout(() => progress(null), 2500);
 }
+
+// ------------------------------------------------------------------ calculator software (Epsilon updates)
+// The local server (server.js) fetches NumWorks' official firmware with the session in numworks-cookie.txt.
+// Its .dfu holds both slots; as NumWorks' updater does, only the slot the calculator isn't running from can be
+// written (the part inside the memory its DFU interface shows), and it restarts on it.
+const SLOT_B_START = 0x90400000;
+const slotOf = (addr) => (addr >= SLOT_B_START ? 'B' : 'A');
+
+$('#fw-check').addEventListener('click', () => job('Checking for updates', async () => {
+  st.fw = null;
+  const s = MOCK ? { cookie: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
+  if (!s) { fwSetup('Updates need this page served by server.js (npm start), not another web server.'); return; }
+  if (!s.cookie) { fwSetup('Updates need your NumWorks session: see "Calculator software updates" in the README to make numworks-cookie.txt next to server.js, then check again.'); return; }
+  const r = await fetch(MOCK ? 'test/mock/fw.json' : `api/firmware/${st.info.model}.json`);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+  st.fw = j;
+  $('#fw-setup').hidden = true;
+  log(`NumWorks offers Epsilon ${j.version} (${j.patch_level}) for the ${st.info.model}`);
+}));
+
+function fwSetup(text) { const p = $('#fw-setup'); p.hidden = false; p.textContent = text; $('#fw-box').hidden = true; }
+
+function renderFirmware() {
+  const i = st.info, f = st.fw;
+  $('#fw-box').hidden = !f;
+  if (!f) return;
+  const target = i.slot === 'A' ? 'B' : 'A';
+  const same = f.version === i.version && f.patch_level === i.patch;
+  $('#fw-now').textContent = `Epsilon ${i.version} (${i.patch}), slot ${i.slot}`;
+  $('#fw-new').textContent = `Epsilon ${f.version} (${f.patch_level})`;
+  const appsInB = st.scan.apps.some((a) => a.address + a.size > SLOT_B_START);
+  $('#fw-note').textContent = (same ? 'You have this version already. ' : '')
+    + `It goes in slot ${target}, the one the calculator is not running, and the calculator restarts on it.`
+    + (target === 'A' ? ' Slot A is the one Nwagra needs.' : ' To end up on slot A (for Nwagra), update a second time after this one.')
+    + (target === 'B' && appsInB ? ' Slot B holds the end of your Nwagra apps now: writing it breaks them, so install them again after.' : '');
+  $('#fw-install').textContent = same ? `Reinstall in slot ${target}` : `Update to ${f.version}`;
+  $('#fw-plan').textContent = `Writes about ${mb(f.size || 0)} to slot ${target}.`;
+  $('#fw-install').disabled = st.busy;
+}
+
+$('#fw-install').addEventListener('click', async () => {
+  const i = st.info, f = st.fw;
+  const target = i.slot === 'A' ? 'B' : 'A';
+  if (!await confirmDialog(`Write Epsilon ${f.version} (${f.patch_level}) into slot ${target} and restart the calculator on it? `
+    + 'Do not unplug the calculator until it is done.' + ($('#fw-keep').checked ? ' Your Python scripts are saved first and put back after.' : ' Files on the calculator may be lost.'))) return;
+  await job('Update', async () => {
+    const bar = (label) => (p) => progress(p, label + ' ' + (p * 100).toFixed(0) + '%', $('#fw-progress'));
+    // 1. the firmware, from NumWorks through the local server
+    log(`Downloading Epsilon ${f.version} for the ${i.model}…`);
+    bar('Downloading')(0);
+    const r = await fetch(MOCK ? 'test/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}`);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
+    const elements = writableElements(parseDfuFile(new Uint8Array(await r.arrayBuffer())), st.dfu);
+    if (!elements.length) throw new Error('Nothing in that firmware is for the part of the calculator that can be written now');
+    const slots = [...new Set(elements.map((e) => slotOf(e.address)))];
+    if (slots.length !== 1 || slots[0] === i.slot) throw new Error(`The firmware's writable part is for slot ${slots.join('+')}, but the calculator runs from slot ${i.slot}: stopping`);
+    log(`Firmware: ${elements.map((e) => hex(e.address) + ' (' + kb(e.data.length) + ')').join(', ')} for slot ${slots[0]}`);
+    // 2. the files, so the scripts can come back
+    let scripts = [];
+    if ($('#fw-keep').checked) {
+      const raw = await st.dfu.read(i.storageAddress, i.storageSize);
+      download(raw, `numworks-files-${stamp()}.bin`);
+      scripts = (parseStorage(raw)?.files || []).filter((x) => /\.py$/.test(x.name));
+      log(`Saved ${scripts.length} Python script(s) and a backup of all files`);
+    }
+    // 3. write, checking every byte
+    let n = 0;
+    for (const e of elements) {
+      const pad = (4 - (e.data.length % 4)) % 4;
+      const data = new Uint8Array(e.data.length + pad).fill(0xff);
+      data.set(e.data);
+      n++;
+      await st.dfu.write(e.address, data, bar(`Writing ${n}/${elements.length}`));
+      const back = await st.dfu.read(e.address, data.length, bar(`Checking ${n}/${elements.length}`));
+      for (let k = 0; k < data.length; k++) if (back[k] !== data[k]) throw new Error('Check failed at ' + hex(e.address + k) + '. The calculator still runs its current software: try again.');
+    }
+    log(`Wrote and checked slot ${slots[0]}. Restarting the calculator…`);
+    // 4. restart on it, and wait for it to come back
+    const serial = st.dev?.serialNumber;
+    await st.dfu.leave(elements[0].address).catch(() => {});
+    if (MOCK) { progress(1, 'Done (pretend calculator: no restart)', $('#fw-progress')); return; }
+    st.dev = st.dfu = st.info = st.scan = null;
+    st.fw = null;
+    render();
+    status('Restarting… keep the calculator plugged in and unlocked.');
+    let dev = null;
+    for (let t = 0; t < 90 && !dev; t++) {
+      await new Promise((ok) => setTimeout(ok, 1000));
+      dev = (await navigator.usb.getDevices()).find((d) => d.vendorId === 0x0483 && (!serial || d.serialNumber === serial));
+    }
+    if (!dev) { status('Updated. Connect again when the calculator is back.', 'ok'); log('The calculator did not come back by itself: connect again'); return; }
+    await new Promise((ok) => setTimeout(ok, 1500));
+    await connect(dev);
+    log(`Now on Epsilon ${st.info.version} (${st.info.patch}), slot ${st.info.slot}`);
+    // 5. the scripts back, next to whatever files the new software has
+    if (scripts.length) {
+      const now = parseStorage(await st.dfu.read(st.info.storageAddress, st.info.storageSize));
+      const have = new Set((now?.files || []).map((x) => x.name));
+      const missing = scripts.filter((x) => !have.has(x.name));
+      if (missing.length) {
+        await st.dfu.program(st.info.storageAddress, buildStorage((now?.files || []).concat(missing), st.info.storageSize));
+        await rescan();
+      }
+      log(`Put back ${missing.length} Python script(s)`);
+    }
+    status(`Updated: Epsilon ${st.info.version}, slot ${st.info.slot}`, 'ok');
+  });
+});
 
 // a calculator this page was allowed to use before: connect straight away
 if (!MOCK) navigator.usb?.getDevices().then((ds) => {

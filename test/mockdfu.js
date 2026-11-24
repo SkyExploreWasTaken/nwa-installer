@@ -25,6 +25,11 @@ export async function mockDevice() {
       for (let i = 0; i < 20; i++) { await sleep(40); if (progress) progress((i + 1) / 20); }
       find(a, data.length).set(data);
     },
+    async program(a, data) { find(a, data.length).set(data); },
+    segmentFor(addr) {
+      for (const l of meta.layouts) for (const s of l.segments) if (addr >= s.start && addr < s.end) return s;
+      return null;
+    },
     async leave() { this.left = true; },
     State,
   };

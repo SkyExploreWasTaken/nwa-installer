@@ -1,3 +1,5 @@
+# your NumWorks session: never commit it
+numworks-cookie.txt
 node_modules/
 vendor/eadk.o
 # saved copies of a calculator, and test apps

@@ -7,13 +7,15 @@ nothing goes to a server: the page talks to the calculator over WebUSB and links
 - **Nwagra** option (Enlarged Extra Apps): lets the last app run past the app area to the end of the flash, so you
   get about 6 MB instead of about 2 MB (6.5 MB on Epsilon 26)
 - Backs up and restores the app area, and backs up the calculator's files
+- Updates the calculator's software (Epsilon) from NumWorks, keeping your Python scripts, and can move it to
+  slot A (what Nwagra needs)
 - Shows the calculator's model, software version and app space, and the apps on it with their sizes
 
 Works in Chrome and Edge (browsers with WebUSB), with NumWorks calculators running Epsilon 16 or later. Tested on
 an N0120 with Epsilon 26.4.
 
 ## Run it
-You need [Node.js](https://nodejs.org) and Python 3.
+You need [Node.js](https://nodejs.org).
 
 ```
 npm install
@@ -21,8 +23,8 @@ npm run setup
 npm start
 ```
 
-Then open http://localhost:8642/ (on Windows, `serve.bat` does all of this and opens the page). WebUSB only works on
-`localhost` or over https, so open it from that address, not as a file.
+Then open http://localhost:8642/ (on Windows, `serve.bat` starts it and opens the page). The server only answers
+this computer. WebUSB only works on `localhost` or over https, so open it from that address, not as a file.
 
 1. Plug the calculator in, unlock it, click **Connect calculator** and pick it.
 2. Drop `.nwa` files in. They're installed in the order shown.
@@ -39,6 +41,7 @@ Only one tab or program can use the calculator at a time. If connecting fails, c
 - `lib/link.js`: a `.nwa` is an ARM object, so each app is linked for the address it will sit at, with GNU ld built
   as WebAssembly and `eadk.o`, the same way NumWorks' installer does. The result is byte-for-byte what NumWorks'
   installer writes.
+- `lib/dfufile.js`, `server.js`: NumWorks' firmware (.dfu) and the local server that fetches it.
 - `lib/install.js`: lays the new apps out one after the other on whole sectors, adds an erased sector to end the
   list, then writes and checks it.
 
@@ -50,6 +53,24 @@ The calculator lists the apps that start in its app area (0x90200000, or 0x90180
 0x903F0000), but an app may run on past it. Nwagra lets the last app go on to the end of the external flash,
 0x90800000. That space holds the calculator's spare copy of its software (slot B), which gets overwritten. The
 calculator keeps running from slot A. The page only offers it when the calculator runs from slot A.
+
+### Calculator software updates
+The **Calculator software** section installs NumWorks' official Epsilon, the latest one my.numworks.com offers for
+your model. NumWorks only gives it to signed-in users, so `server.js` fetches it with your session, which you put in
+a file next to it. The cookie stays in that file on your computer: the page never sees it, it's never served, and
+`.gitignore` keeps it out of git.
+
+1. Sign in at https://my.numworks.com in Chrome or Edge and open the Update page.
+2. Press F12, open **Network**, reload, click the first request (`upgrade`) and copy the value of its `Cookie`
+   request header.
+3. Paste it into a new file `numworks-cookie.txt` next to `server.js` (one line).
+
+When the session expires, the page says so: copy a new cookie the same way.
+
+Like NumWorks' updater, it writes the slot the calculator isn't running from, then restarts on it. So each update
+moves the calculator between slot A and slot B. Nwagra needs slot A: if you're on B, one update (even to the same
+version) puts you on A. Your Python scripts are saved before and put back after, and a backup of all files is
+downloaded first.
 
 ## Tests
 `npm install` brings node-usb for these:
