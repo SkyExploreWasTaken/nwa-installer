@@ -1,0 +1,16 @@
+{
+  "name": "nwa-installer",
+  "version": "1.0.0",
+  "description": "Install .nwa apps on a NumWorks calculator from your browser over WebUSB, without an account",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "setup": "node setup.js",
+    "start": "python -m http.server 8642 --bind 127.0.0.1",
+    "probe": "node test/probe.mjs"
+  },
+  "devDependencies": {
+    "nwlink": "^1.0.0",
+    "usb": "^2.4.3"
+  }
+}

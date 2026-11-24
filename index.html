@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NWA Installer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='2' width='20' height='28' rx='5' fill='%23e8743b'/%3E%3Crect x='9' y='5' width='14' height='9' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="6" y="2" width="20" height="28" rx="5" class="logo-body"/>
+        <rect x="9" y="5" width="14" height="9" rx="2" class="logo-screen"/>
+        <circle cx="12" cy="19.5" r="1.6" class="logo-key"/><circle cx="16" cy="19.5" r="1.6" class="logo-key"/><circle cx="20" cy="19.5" r="1.6" class="logo-key"/>
+        <circle cx="12" cy="24.5" r="1.6" class="logo-key"/><circle cx="16" cy="24.5" r="1.6" class="logo-key"/><circle cx="20" cy="24.5" r="1.6" class="logo-key"/>
+      </svg>
+      <div>
+        <h1>NWA Installer</h1>
+        <p class="sub">Put <code>.nwa</code> apps on a NumWorks calculator, straight from this computer.</p>
+      </div>
+    </div>
+    <ul class="pills" aria-label="About">
+      <li>No account</li><li>Runs locally</li><li>Chrome &amp; Edge</li>
+    </ul>
+  </header>
+
+  <main>
+    <section id="s-connect" class="card">
+      <div class="card-head">
+        <span class="step">1</span>
+        <div>
+          <h2>Calculator</h2>
+          <p id="status" class="muted">Plug the calculator in, unlock it, then connect.</p>
+        </div>
+        <button id="connect" class="primary">Connect calculator</button>
+      </div>
+      <dl id="info" class="info" hidden></dl>
+    </section>
+
+    <section id="s-apps" class="card" hidden>
+      <div class="card-head">
+        <span class="step">2</span>
+        <div><h2>On the calculator</h2><p class="muted">Apps installed now, in the order the calculator lists them.</p></div>
+      </div>
+      <ul id="installed" class="apps"></ul>
+      <p id="files" class="note"></p>
+      <div class="toolbar">
+        <button id="backup-apps" class="ghost" title="Save the whole app area as a .bin you can restore later">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 14v2h12v-2"/></svg>Back up apps</button>
+        <button id="backup-files" class="ghost" title="Save the calculator's files (Python scripts, saves) as a .bin">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 14v2h12v-2"/></svg>Back up files</button>
+        <label class="button ghost" title="Write an app-area backup back to the calculator">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5M4 14v2h12v-2"/></svg>Restore apps…<input id="restore" type="file" accept=".bin" hidden></label>
+      </div>
+    </section>
+
+    <section id="s-new" class="card" hidden>
+      <div class="card-head">
+        <span class="step">3</span>
+        <div><h2>Install apps</h2><p class="muted">Add .nwa files. They go on the calculator in this order.</p></div>
+      </div>
+
+      <div id="drop" class="drop">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0l-4 4m4-4l4 4M5 15v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg>
+        <span>Drop .nwa files here or <label class="link">browse<input id="pick" type="file" accept=".nwa" multiple hidden></label></span>
+      </div>
+      <ul id="queue" class="apps queue"></ul>
+
+      <div class="options">
+        <label class="opt"><input type="checkbox" id="keep" checked><span class="switch" aria-hidden="true"></span>
+          <span><b>Keep the apps already installed</b><span class="muted">New apps go after them. Off: the app area is rewritten with only the new apps.</span></span></label>
+        <label class="opt" id="nwagra-opt"><input type="checkbox" id="nwagra"><span class="switch" aria-hidden="true"></span>
+          <span><b>Nwagra: enlarged app space</b><span class="muted" id="nwagra-note">Apps may run on past the app area, to the end of the flash.</span></span></label>
+        <label class="opt"><input type="checkbox" id="restart" checked><span class="switch" aria-hidden="true"></span>
+          <span><b>Restart the calculator when done</b><span class="muted">So it lists the new apps right away.</span></span></label>
+      </div>
+
+      <div class="space">
+        <div class="space-head"><span>Space for apps</span><span id="legend" class="legend"></span></div>
+        <div id="bar" class="bar"></div>
+      </div>
+
+      <div class="install-row">
+        <span id="plan" class="muted"></span>
+        <button id="install" class="primary big" disabled>Install</button>
+      </div>
+      <div id="progress" class="progress" hidden><div></div><span></span></div>
+    </section>
+
+    <details class="card log" open>
+      <summary><h2>Log</h2></summary>
+      <pre id="log"></pre>
+    </details>
+  </main>
+
+  <footer class="foot">Everything happens between this page and the calculator over USB. Nothing is uploaded.</footer>
+</div>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <div class="dlg-icon" aria-hidden="true">!</div>
+    <h2>Write to the calculator?</h2>
+    <p id="confirm-text"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="ghost">Cancel</button>
+      <button value="ok" class="primary danger">Write it</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+vendor/eadk.o
+# saved copies of a calculator, and test apps
+test/mock/
+test/*.nwa
+*.bin
