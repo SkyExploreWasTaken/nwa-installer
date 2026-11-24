@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // The NumPlay builder in the installer page: pick games (and the extra apps the server offers, as games like the
 // others), choose the launcher's looks, and its NumPlay.nwa goes straight into the apps to install.
 import { NumPlayKit, VARIANTS, SECRETS, MAX_GAMES } from './lib/numplay.js';
@@ -39,7 +40,7 @@ export function initNumPlay({ log, free, add }) {
         $('#np-variants').append(b);
       }
       SECRETS.forEach((s, i) => $('#np-secret').append(new Option(s, String(i))));
-      for (const g of st.kit.games()) tiles.set(g.id, tile(g.id, g.title, st.kit.iconUrl(g.id), g.flash, g.xl ? 'big' : '', g.top));
+      for (const g of st.kit.games()) tiles.set(g.id, tile(g.id, g.title, st.kit.iconUrl(g.id), g.flash, g.xl ? 'big' : '', g.top, g.credit));
       log(`NumPlay ${st.kit.version}: ${st.kit.games().length} games`);
       status('');
       render();
@@ -56,7 +57,7 @@ export function initNumPlay({ log, free, add }) {
         const bytes = new Uint8Array(await fetch('/numplay/extra/' + encodeURIComponent(name)).then((r) => r.arrayBuffer()));
         const a = await st.kit.extraFrom(bytes, name, i + 1);
         st.extras.push(a);
-        tiles.set(a.id, tile(a.id, a.title, a.icon, a.flash, 'extra', a.color));
+        tiles.set(a.id, tile(a.id, a.title, a.icon, a.flash, 'extra', a.color, 'From extra/' + a.file));
         render();
       } catch (e) {
         log(name + ': ' + e.message);
@@ -64,7 +65,8 @@ export function initNumPlay({ log, free, add }) {
     }
   }
 
-  function tile(id, title, icon, flash, tag, color) {
+  // a game's button: its icon, name and size; its credit (from NumPlay's kit) when you hover it
+  function tile(id, title, icon, flash, tag, color, credit) {
     const b = el('button', 'tile');
     b.type = 'button';
     b.dataset.id = id;
@@ -72,7 +74,7 @@ export function initNumPlay({ log, free, add }) {
     if (icon) { const img = el('img'); img.src = icon; img.alt = ''; img.loading = 'lazy'; b.append(img); }
     else { const ph = el('span', 'ph', title.slice(0, 1)); ph.style.background = '#' + String(color || '0x888888').replace(/^0x/i, '').padStart(6, '0'); b.append(ph); }
     b.append(el('span', 't', title), el('span', 's', size(flash)));
-    if (tag === 'big') b.title = 'A big game: it may need Nwagra\'s space';
+    b.title = [title, credit, tag === 'big' ? 'A big game: it may need Nwagra\'s space' : ''].filter(Boolean).join('\n');
     b.addEventListener('click', () => toggle(id));
     return b;
   }

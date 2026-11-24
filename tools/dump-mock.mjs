@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Saves what the page reads from the plugged-in calculator into public/dev/mock/, for the pretend calculator
 // (http://localhost:8642/?mock) that tests the page without writing to a real one. Only reads.
 //   node tools/dump-mock.mjs

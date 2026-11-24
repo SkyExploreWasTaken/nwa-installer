@@ -166,6 +166,8 @@ button svg, .button svg, .drop svg { width: 17px; height: 17px; fill: none; stro
 }
 .log pre:empty::before { content: "Nothing yet."; }
 .foot { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 26px; }
+.foot p { margin: 4px 0; }
+.foot a { color: var(--muted); }
 
 /* dialog */
 dialog {

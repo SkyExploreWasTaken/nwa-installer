@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ST's DfuSe file format (.dfu), as NumWorks' firmware comes: images of memory, each with its address.
 // -> [{ address, data: Uint8Array, alt, target }]
 export function parseDfuFile(buf) {

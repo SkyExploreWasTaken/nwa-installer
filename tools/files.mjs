@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // The calculator's files. Only reads.
 //   node tools/files.mjs [storage.bin]     (also saves the raw storage)
 import fs from 'fs';

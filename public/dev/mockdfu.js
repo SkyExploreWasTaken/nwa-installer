@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // A pretend calculator for testing the page without one (index.html?mock): memory from dev/mock/ (saved by
 // dump-mock.mjs), reads and writes in memory only.
 import { State } from '../lib/dfu.js';

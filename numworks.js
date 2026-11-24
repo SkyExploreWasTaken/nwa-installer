@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // NumWorks' official firmware, from my.numworks.com. NumWorks only gives it to signed-in users, so the server signs
 // in with the account in numworks-account.json (next to server.js, never served, never committed) and keeps the
 // session in memory, signing in again when it expires. The page only ever gets the firmware.

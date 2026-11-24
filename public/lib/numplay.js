@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Makes a NumPlay.nwa from NumPlay's kit, in the page: NumPlay's launcher and the games you pick, linked the way
 // NumPlay Studio links them. NumPlay (https://github.com/Mason363/NumPlay, GPL-3.0) is Mason Chen's: its kit (the
 // launcher's and games' objects, kit.json) and its apps.js (which turns a .nwa into a NumPlay game) are fetched from

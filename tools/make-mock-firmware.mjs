@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // A pretend NumWorks firmware for the pretend calculator (?mock): a DfuSe file with a slot A and a slot B image.
 //   node tools/make-mock-firmware.mjs
 import fs from 'fs';

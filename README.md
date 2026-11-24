@@ -103,11 +103,30 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 | `npm test` | signs in to a pretend my.numworks.com and fetches its firmware, the way `numworks.js` does with the real one |
 | `node tools/dump-mock.mjs` and `node tools/make-mock-firmware.mjs` | save what http://localhost:8642/?mock needs: the page on a pretend copy of your calculator, writing to memory only |
 
-## License
-MIT for this installer's code. `public/vendor/ld.*` and `objcopy.*` are GNU binutils under the GPL (see
-[public/vendor/README.md](public/vendor/README.md)). `eadk.o` is NumWorks' and isn't in this repository:
-`npm run setup` takes it from their `nwlink` npm package. NumPlay's launcher, games and kit are
-Mason Chen's ([NumPlay](https://github.com/Mason363/NumPlay), GPL-3.0); they aren't in this repository either: the
-server fetches them from NumPlay's site.
+## Credits
+- **[NumPlay](https://github.com/Mason363/NumPlay)** by Mason Chen and its contributors (GPL-3.0): the launcher and
+  the games of the NumPlay builder, the kit they come in, and `apps.js`, which turns a `.nwa` into a NumPlay game. The
+  builder links a NumPlay the way NumPlay Studio does. Each game's own credits are on its tile, and all of them
+  (the original games, ports, fonts and engines) are in [NumPlay's README](https://github.com/Mason363/NumPlay#readme).
+- **[GNU binutils](https://www.gnu.org/software/binutils/)** (GPL-3.0-or-later): ld and objcopy, which link every app,
+  built as WebAssembly by NumPlay.
+- **Nwagra** (Enlarged Extra Apps) is [nwagyu](https://nwagyu.org/guide/help/enlarge-your-memory.html)'s idea: this
+  installer does the same thing on its own.
+- **[NumWorks](https://www.numworks.com)**: the calculator, Epsilon and its official firmware (downloaded from
+  my.numworks.com with your account, never stored in this repository), and `eadk.o` from their
+  [nwlink](https://www.npmjs.com/package/nwlink) package. How apps are linked and laid out follows what nwlink and
+  NumWorks' online installer do. Not affiliated with NumWorks.
+- **USB DFU** and ST's **DfuSe** extensions, the protocol the calculator speaks, written for this project from their
+  specifications.
+- **[node-usb](https://github.com/node-usb/node-usb)** (MIT), for the command-line tools.
+- **FNAF Speed**, the example in `extra/`, isn't part of this repository: it's NumPlay's Five Nights at Freddy's with a
+  game-speed picker added. *Five Nights at Freddy's* is by Scott Cawthon; NumPlay's port credits the fan ports and
+  sources it builds on. Not affiliated with Scott Cawthon.
 
-Not affiliated with NumWorks.
+## License
+Copyright (C) 2026 SkyExploreWasTaken. Free software under the GNU General Public License, version 3 or (at your
+option) any later version: see [LICENSE](LICENSE).
+
+Not in this repository, and under their own terms: NumPlay's kit (GPL-3.0, fetched from NumPlay's site when you use
+the builder), NumWorks' firmware and `eadk.o` (NumWorks', fetched or made on your computer), and the apps you put in
+`extra/`. `public/vendor/ld.*` and `objcopy.*` are GNU binutils (see [public/vendor/README.md](public/vendor/README.md)).

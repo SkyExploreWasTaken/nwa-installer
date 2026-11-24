@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Links a .nwa (a relocatable ARM ELF) into the flat binary that goes in the calculator's flash at a given address,
 // as NumWorks' installer does: GNU ld (WebAssembly, vendor/ld.*) with eadk.o and the script below, then objcopy
 // to raw bytes. Every app is linked for the exact address it will sit at, so apps can't be moved once installed.

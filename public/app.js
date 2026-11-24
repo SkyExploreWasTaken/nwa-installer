@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // The installer page: connect over WebUSB, show what's on the calculator, add .nwa files, install.
 import { Dfu } from './lib/dfu.js';
 import { readInfo, scanApps, parseAppHeader, hex, SECTOR, SLOT_B } from './lib/calc.js';

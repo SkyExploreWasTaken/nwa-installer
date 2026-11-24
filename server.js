@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // The installer's local web server, for this computer only (http://localhost:8642):
 //  - the page, from public/
 //  - NumWorks' official firmware at /api/firmware/ (numworks.js), fetched with your my.numworks.com account kept in

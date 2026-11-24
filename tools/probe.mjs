@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // What's on the plugged-in calculator: its memories, software and apps. Only reads.
 //   node tools/probe.mjs [--dump apps.bin]     (--dump also saves the whole app area)
 import fs from 'fs';

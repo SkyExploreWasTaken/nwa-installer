@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Install .nwa apps on a NumWorks calculator from your browser over WebUSB, without an account",
   "private": true,
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "setup": "node tools/setup.js",
     "start": "node server.js",

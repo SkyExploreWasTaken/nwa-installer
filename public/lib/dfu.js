@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // USB DFU 1.1 with ST's DfuSe extensions, over WebUSB: what a NumWorks calculator speaks when it's plugged in.
 // Works with a browser's USBDevice and with node-usb's WebUSB shim (for tests).
 const DETACH = 0, DNLOAD = 1, UPLOAD = 2, GETSTATUS = 3, CLRSTATUS = 4, ABORT = 6;

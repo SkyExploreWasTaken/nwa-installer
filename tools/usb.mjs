@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Shared by the command-line tools: the page's own code (public/lib), run in Node against the plugged-in calculator
 // through node-usb's WebUSB.
 import { createRequire } from 'module';

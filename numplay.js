@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // NumPlay's files for the page's NumPlay builder (public/lib/numplay.js). NumPlay (Mason363/NumPlay, GPL-3.0) isn't
 // part of this repository: its kit and apps.js are fetched from NumPlay's site when the page asks for them, and kept
 // in .cache/numplay/ so the builder works offline after.

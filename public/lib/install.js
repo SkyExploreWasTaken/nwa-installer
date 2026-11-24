@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Plans and writes an install: the new apps linked one after the other, each on whole 64 KB sectors, from the
 // start of the app area (replace) or from just after the installed apps (keep), and an erased sector after them
 // so the calculator's list of apps ends there.

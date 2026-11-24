@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // The calculator's files (its "storage": Python scripts, settings, app saves), in RAM: a magic, then records of
 // [u16 total size][name \0][content], ending with a 0 size.
 const MAGIC = [0xba, 0xdd, 0x0b, 0xee];

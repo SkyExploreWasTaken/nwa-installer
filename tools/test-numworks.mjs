@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Tests numworks.js (signing in to my.numworks.com, fetching the firmware) against a pretend my.numworks.com that
 // works like the real one: a Rails/Devise sign-in form with a CSRF token, and pages that send you to it when signed out.
 //   node tools/test-numworks.mjs
