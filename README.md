@@ -48,15 +48,11 @@ local server and kept in `.cache/`, so the builder works offline after the first
 
 ## Epsilon updates
 The **Calculator software** section installs NumWorks' official Epsilon, the latest one my.numworks.com offers for
-your model. NumWorks only gives it to signed-in users, so `server.js` fetches it with your session, which you keep
-in a file next to it. The page never sees it, the server never serves it, and `.gitignore` keeps it out of git.
-
-1. Sign in at https://my.numworks.com in Chrome or Edge and open the Update page.
-2. Press F12, open **Network**, reload, click the first request (`upgrade`) and copy the value of its `Cookie`
-   request header.
-3. Paste it into a new file `numworks-cookie.txt` next to `server.js`, on one line.
-
-When the session expires, the page says so: copy a new cookie the same way.
+your model. NumWorks only gives it to signed-in users, so `server.js` signs in to my.numworks.com with your account,
+which you keep in a file next to it: copy `numworks-account.example.json` to `numworks-account.json` and put your
+NumWorks email and password in it. The page never sees them, the server never serves that file, and `.gitignore`
+keeps it out of git. The server signs in when the page first asks for an update, and again whenever the session
+expires.
 
 Like NumWorks' updater, it writes the slot the calculator isn't running from, checks it, then restarts on it, so
 each update moves the calculator between slot A and slot B. Nwagra needs slot A: from slot B, one update (even to
@@ -66,6 +62,7 @@ files is downloaded first.
 ## How it works
 ```
 server.js            the local server: the page, firmware downloads, NumPlay's files
+numworks.js          signs in to my.numworks.com and fetches the firmware
 numplay.js           NumPlay's kit from its site (kept in .cache/), and the apps in extra/
 public/
   index.html, app.js, style.css    the page
@@ -103,6 +100,7 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 | `node tools/files.mjs [storage.bin]` | its files (only reads) |
 | `node tools/install.mjs --compare app.nwa` | links app.nwa where the first app is and compares it with the calculator |
 | `node tools/install.mjs [--keep] [--nwagra] [--write] a.nwa ...` | plans an install, and with `--write` flashes it |
+| `npm test` | signs in to a pretend my.numworks.com and fetches its firmware, the way `numworks.js` does with the real one |
 | `node tools/dump-mock.mjs` and `node tools/make-mock-firmware.mjs` | save what http://localhost:8642/?mock needs: the page on a pretend copy of your calculator, writing to memory only |
 
 ## License

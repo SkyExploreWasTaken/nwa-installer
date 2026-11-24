@@ -1,9 +1,10 @@
-# your NumWorks session: never commit it
+# your NumWorks account (and the old session-cookie file): never commit them
+numworks-account.json
 numworks-cookie.txt
 node_modules/
 # made by npm run setup from NumWorks' nwlink package
 public/vendor/eadk.o
-# NumPlay Studio, fetched and kept by the server; your extra apps for it
+# NumPlay's kit, fetched and kept by the server; your extra apps for the NumPlay builder
 .cache/
 extra/
 # saved copies of a calculator, apps and backups

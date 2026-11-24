@@ -321,16 +321,16 @@ async function finish() {
 }
 
 // ------------------------------------------------------------------ calculator software (Epsilon updates)
-// The local server (server.js) fetches NumWorks' official firmware with the session in numworks-cookie.txt.
+// The local server (numworks.js) fetches NumWorks' official firmware, signed in with the account in numworks-account.json.
 // Its .dfu holds both slots; as NumWorks' updater does, only the slot the calculator isn't running from can be
 // written (the part inside the memory its DFU interface shows), and it restarts on it.
 const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
 $('#fw-check').addEventListener('click', () => job('Checking for updates', async () => {
   st.fw = null;
-  const s = MOCK ? { cookie: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
+  const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup('Updates need this page served by server.js (npm start), not another web server.'); return; }
-  if (!s.cookie) { fwSetup('Updates need your NumWorks session: see "Calculator software updates" in the README to make numworks-cookie.txt next to server.js, then check again.'); return; }
+  if (!s.account) { fwSetup(s.error || 'Updates need your NumWorks account: see "Epsilon updates" in the README to make numworks-account.json next to server.js, then check again.'); return; }
   const r = await fetch(MOCK ? 'dev/mock/fw.json' : `api/firmware/${st.info.model}.json`);
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
