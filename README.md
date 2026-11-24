@@ -110,8 +110,10 @@ With `npm install` done, these run the page's code against the plugged-in calcul
   (the original games, ports, fonts and engines) are in [NumPlay's README](https://github.com/Mason363/NumPlay#readme).
 - **[GNU binutils](https://www.gnu.org/software/binutils/)** (GPL-3.0-or-later): ld and objcopy, which link every app,
   built as WebAssembly by NumPlay.
-- **Nwagra** (Enlarged Extra Apps) is [nwagyu](https://nwagyu.org/guide/help/enlarge-your-memory.html)'s idea: this
-  installer does the same thing on its own.
+- **Nwagra** (Enlarged Extra Apps) was made by an anonymous author who can't be reached anymore, as their website
+  is down. This installer does the same thing on its own. Code from
+  https://web.archive.org/web/20221008080116/https://www.nwagyu.com/nwagra.min.js, extracted from
+  https://www.nwagyu.com/ (as the site is down).
 - **[NumWorks](https://www.numworks.com)**: the calculator, Epsilon and its official firmware (downloaded from
   my.numworks.com with your account, never stored in this repository), and `eadk.o` from their
   [nwlink](https://www.npmjs.com/package/nwlink) package. How apps are linked and laid out follows what nwlink and
