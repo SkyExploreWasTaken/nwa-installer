@@ -2,7 +2,7 @@
 // What's on a NumWorks calculator (Epsilon 16 and later, N0110/N0115/N0120): its firmware headers and the
 // external apps in its app area. All of it read over DFU, nothing written.
 import { InstallerError } from './errors.js';
-import { detectModel, usbVersionOf, savedModel, possibleModels } from './model.js';
+import { detectModel, usbVersionOf, savedModel } from './model.js';
 export const SECTOR = 0x10000;            // apps start on 64 KB sectors
 export const FLASH_END = 0x90800000;
 export const SLOT_B = 0x90400000;      // the second copy of the software (its kernel header 8 bytes in)      // end of the 8 MB external flash
@@ -26,7 +26,7 @@ export async function readInfo(dfu) {
   const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName: dfu.device?.productName || dfu.productName || '', layouts: dfu.layouts });
   const serial = dfu.device?.serialNumber || null;
   const saved = m.certain ? null : savedModel(serial, m.choices);
-  const info = { model: m.model || saved, modelSource: m.certain ? 'usb' : saved ? 'user' : null, modelChoices: m.choices, modelPossible: possibleModels(dfu.layouts), serial,
+  const info = { model: m.model || saved, modelSource: m.certain ? 'usb' : saved ? 'user' : null, modelChoices: m.choices, serial,
     ramStart: 0x20000000 };
   // the N0120 has its RAM at 0x24000000: its DFU memories say so
   for (const l of dfu.layouts) for (const s of l.segments) if (s.start === 0x24000000) info.ramStart = 0x24000000;

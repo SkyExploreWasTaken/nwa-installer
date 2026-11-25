@@ -9,7 +9,7 @@ import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall } from './lib/install.js';
 import { parseStorage, buildStorage, recordSize, MAX_RECORD } from './lib/storage.js';
 import { firmwareChoices } from './lib/fwchoice.js';
-import { saveModel, serialHex, lookupDevice, mergeLookup } from './lib/model.js';
+import { saveModel } from './lib/model.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
@@ -114,7 +114,6 @@ async function connect(dev) {
   await rescan();
   st.modelAsk = !st.info.model;
   status(T('connect.ok', { name: dev.productName || 'NumWorks', model: modelLabel(st.info.model) }), 'ok');
-  askNumWorks(st.info, dev.productName || 'NumWorks');
   loadTools().catch((e) => log('Linker: ' + e.message));
 }
 
@@ -163,25 +162,6 @@ $('#model-ok').addEventListener('click', () => {
   status(T('connect.ok', { name: st.dev?.productName || 'NumWorks', model: modelLabel(m) }), 'ok');
   render();
 });
-
-// what NumWorks' site says about this calculator (by its serial number, through the local server): its model, when
-// it knows it, is the most certain answer. In the background, at most ~5 s; nothing happens when it doesn't answer.
-function askNumWorks(info, name) {
-  if (MOCK) return;
-  const serial = serialHex(info.serial);
-  lookupDevice(serial).then((look) => {
-    if (!look || st.info !== info) return;  // (no answer, or another calculator by now)
-    const mg = mergeLookup(info, look);
-    for (const w of mg.warnings) log('Warning: ' + w);
-    if (mg.version) Object.assign(info, { version: mg.version, patch: mg.patch });
-    if (mg.model && mg.model !== info.model) { st.fw = st.fwChoice = null; }
-    Object.assign(info, { model: mg.model, modelSource: mg.modelSource });
-    if (info.model) st.modelAsk = false;
-    log(`NumWorks knows this calculator: ${look.model}${look.cached ? ' (as it said last time: not reachable now)' : ''}`);
-    status(T('connect.ok', { name, model: modelLabel(info.model) }), 'ok');
-    render();
-  });
-}
 
 // ------------------------------------------------------------------ backups and restore
 $('#backup-apps').addEventListener('click', () => job('backup', async () => {
@@ -284,8 +264,7 @@ function render() {
   const info = $('#info');
   info.textContent = '';
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
-  add(t('info.model'), !i.model ? t('info.modelUnknown') : i.modelSource === 'user' ? t('info.modelChosen', { model: modelLabel(i.model) })
-    : i.modelSource?.startsWith('numworks') ? t('info.modelNumWorks', { model: modelLabel(i.model) }) : modelLabel(i.model));
+  add(t('info.model'), !i.model ? t('info.modelUnknown') : i.modelSource === 'user' ? t('info.modelChosen', { model: modelLabel(i.model) }) : modelLabel(i.model));
   drawModelAsk();
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));

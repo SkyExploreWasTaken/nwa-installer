@@ -117,7 +117,6 @@ export default {
   'model.portugal': 'Prototype N0120 portugais',
   'model.unknown': 'modèle pas encore connu',
   'info.modelChosen': '{model} (choisi par vous)',
-  'info.modelNumWorks': '{model} (confirmé par NumWorks)',
   'info.modelUnknown': 'Inconnu : choisissez-le ci-dessous',
   'fw.modelUnknown': 'Choisissez d’abord le modèle de la calculatrice (plus haut) : les mises à jour ne sont proposées que pour un modèle connu avec certitude.',
   'info.software': 'Logiciel',

@@ -115,7 +115,6 @@ export default {
   'model.portugal': 'N0120 Portugal prototype',
   'model.unknown': 'model not known yet',
   'info.modelChosen': '{model} (as you picked it)',
-  'info.modelNumWorks': '{model} (confirmed by NumWorks)',
   'info.modelUnknown': 'Not known: pick it below',
   'fw.modelUnknown': "Pick the calculator's model first (above): updates are only offered for a model that's known for sure.",
   'info.software': 'Software',

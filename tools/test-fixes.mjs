@@ -6,7 +6,6 @@
 //    start and then every hour; requests only read the cache; a missing channel or model is skipped; falls back to the
 //    kept copies when NumWorks can't be reached; a model not on the list is added when first seen; never overwrites
 //  - model.js: the model only when certain (USB descriptor) or picked by the person; memories only narrow the choices
-//  - asking NumWorks: serial to hex, the lookup never throws or hangs, NumWorks' model wins over the rest
 //  - numplay.js: only the manifest's paths, only bytes matching their pinned sha256
 //  - server.js: security headers on every response; /api/firmware answers from the cache without any network
 //   node tools/test-fixes.mjs
@@ -334,51 +333,6 @@ test('model: readInfo uses the descriptor, else a saved pick, else asks (null)',
   info = await readInfo(dfu);
   assert.deepEqual([info.model, info.modelSource], ['N0120_PORTUGAL_PROTOTYPE_20210930', 'user'], 'the pick, remembered');
   delete globalThis.localStorage;
-});
-
-// ------------------------------------------------------------------ asking NumWorks about the calculator (model.js)
-const { serialHex, normalizeModel, lookupDevice, mergeLookup } = await import('../public/lib/model.js');
-
-test('lookup: the USB serial number is the unique ID in base64; NumWorks wants it in hex', () => {
-  assert.equal(serialHex('EgAaAAZRNTAxOTMy'), '12001A000651353031393332');
-  assert.equal(serialHex('not a serial'), null);
-  assert.equal(serialHex(undefined), null);
-  assert.equal(normalizeModel(' n0120 '), 'N0120');
-  assert.equal(normalizeModel('N0120 Portugal prototype 20210930'), 'N0120_PORTUGAL_PROTOTYPE_20210930');
-  assert.equal(normalizeModel('Casio'), null);
-});
-
-test('lookup: an answer, a 404, an outage and a hang all come back without throwing', async () => {
-  const answer = (status, body) => async () => ({ ok: status === 200, status, json: async () => body });
-  assert.deepEqual(await lookupDevice('12001A000651353031393332', { fetch: answer(200, { model: 'N0120', softwareVersion: '26.4.0', cached: false }) }),
-    { model: 'N0120', softwareVersion: '26.4.0', cached: false });
-  assert.equal(await lookupDevice('X', { fetch: answer(404, { code: 'device.notFound' }) }), null, 'not registered');
-  assert.equal(await lookupDevice('X', { fetch: answer(503, { code: 'device.unavailable' }) }), null, 'offline, nothing kept');
-  assert.equal(await lookupDevice('X', { fetch: async () => { throw new TypeError('Failed to fetch'); } }), null, 'no server');
-  const t0 = Date.now();
-  assert.equal(await lookupDevice('X', { fetch: () => new Promise(() => {}), timeout: 100 }), null, 'never answers');
-  assert.ok(Date.now() - t0 < 1000, 'gives up after its timeout');
-  assert.equal(await lookupDevice(null, { fetch: answer(200, {}) }), null, 'no serial: not asked');
-});
-
-test('lookup: NumWorks\' model wins, a contradiction is logged, its version only stands in', () => {
-  const info = { model: 'N0110', modelSource: 'usb', modelPossible: ['N0110', 'N0115'], version: '24.4.0', patch: 'x' };
-  let r = mergeLookup(info, { model: 'N0115', softwareVersion: '26.4.0', cached: false });
-  assert.equal(r.model, 'N0115');
-  assert.equal(r.modelSource, 'numworks');
-  assert.equal(r.warnings.length, 1);
-  assert.match(r.warnings[0], /USB descriptor says N0110/);
-  assert.equal(r.version, undefined, 'the calculator\'s own version is kept');
-  r = mergeLookup(info, { model: 'N0120', cached: true });
-  assert.equal(r.modelSource, 'numworks-cache');
-  assert.ok(r.warnings.some((w) => /memories/.test(w)), 'against the memories too');
-  r = mergeLookup({ model: null, modelSource: null, modelPossible: ['N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'] },
-    { model: 'N0120_PORTUGAL_PROTOTYPE_20210930', softwareVersion: '26.4.0', patchLevel: 'cc9262e' });
-  assert.deepEqual([r.model, r.warnings, r.version, r.patch], ['N0120_PORTUGAL_PROTOTYPE_20210930', [], '26.4.0', 'cc9262e'], 'no version read: NumWorks\' stands in');
-  r = mergeLookup({ model: 'N0110', modelSource: 'usb' }, { model: 'N0130' });
-  assert.equal(r.model, 'N0130', 'a model this site has not seen yet is taken as it is (the firmware cache adds it)');
-  r = mergeLookup({ model: 'N0110', modelSource: 'usb' }, null);
-  assert.deepEqual([r.model, r.modelSource], ['N0110', 'usb'], 'no answer: nothing changes');
 });
 
 // ------------------------------------------------------------------ numplay.js: pinned and checked
