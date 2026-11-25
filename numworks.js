@@ -135,8 +135,60 @@ async function fetchFirmware(model, name) {
 const cache = new FirmwareCache({ dir: process.env.NWA_FW_CACHE || path.join(__dirname, 'cache', 'firmware'), fetchInfo, fetchFirmware,
   log: (m) => console.log(m) });
 
-// answers /api/firmware/...; resolves false for other paths. Never reaches my.numworks.com itself.
+// ------------------------------------------------------------------ what NumWorks knows about a calculator
+// my.numworks.com/devices/<serial>.json (the serial: the calculator's 96-bit unique ID in upper-case hex; its USB serial
+// number is that ID in base64) names its model, as the account's session sees it. Only { model, softwareVersion,
+// patchLevel } is ever kept or sent to the page; answers are kept in cache/devices/<serial>.json for when NumWorks
+// can't be reached.
+const DEVICE_CACHE = process.env.NWA_DEVICE_CACHE || path.join(__dirname, 'cache', 'devices');
+const DEVICE_TIMEOUT = +(process.env.NWA_DEVICE_TIMEOUT || 4500);  // (the page gives up after about 5 s)
+const SERIAL = /^[0-9A-F]{24}$/;
+
+async function fetchDevice(serial) {
+  // (the .json address first, then the page's own address asked for JSON: which one NumWorks answers isn't confirmed)
+  let r = await get(`/devices/${serial}.json`, 'application/json');
+  if (r.status === 404) r = await get(`/devices/${serial}`, 'application/json');
+  if (r.status === 404) throw new HttpError(404, 'NumWorks does not know this calculator', 'device.notFound');
+  if (r.status !== 200) throw new HttpError(502, `my.numworks.com: HTTP ${r.status} for a device`, 'nw.firmwareHttp', { status: r.status, file: 'device' });
+  let j;
+  try { j = JSON.parse(r.body.toString('utf8')); } catch { throw new HttpError(502, 'my.numworks.com did not send JSON for a device', 'nw.notJson', { model: '?' }); }
+  const model = j?.device_model?.name;
+  if (typeof model !== 'string' || !model) throw new HttpError(502, 'my.numworks.com named no model for this device', 'device.noModel');
+  const str = (v) => (typeof v === 'string' && v.length <= 40 ? v : null);
+  return { model: model.slice(0, 64), softwareVersion: str(j.software_version), patchLevel: str(j.software_patch_level) };
+}
+
+function withTimeout(p, ms) {
+  let t;
+  return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new HttpError(504, 'my.numworks.com took too long', 'nw.unreachable', { msg: 'timeout' })), ms); })])
+    .finally(() => clearTimeout(t));
+}
+
+async function device(res, raw, send) {
+  const serial = String(raw).toUpperCase();
+  if (!SERIAL.test(serial)) return send(res, 400, fail('Bad serial number', 'device.badSerial'));
+  const file = path.join(DEVICE_CACHE, serial + '.json');
+  try {
+    const d = await withTimeout(fetchDevice(serial), DEVICE_TIMEOUT);
+    fs.mkdirSync(DEVICE_CACHE, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ ...d, fetchedAt: new Date().toISOString() }));
+    return send(res, 200, { ...d, cached: false });
+  } catch (e) {
+    if (e.status === 404 && e.i18n?.code === 'device.notFound') return send(res, 404, { error: e.message, ...e.i18n });
+    // NumWorks unreachable, signed out, no account...: what it said last time, if anything
+    try {
+      const c = JSON.parse(fs.readFileSync(file, 'utf8'));
+      return send(res, 200, { model: c.model, softwareVersion: c.softwareVersion ?? null, patchLevel: c.patchLevel ?? null, cached: true });
+    } catch { /* nothing kept */ }
+    return send(res, 503, { error: 'NumWorks could not be asked about this calculator: ' + e.message, code: 'device.unavailable', params: {} });
+  }
+}
+
+// answers /api/firmware/... and /api/device/...; resolves false for other paths. Firmware requests never reach
+// my.numworks.com themselves (the hourly check does); device requests do, with a short timeout and the cache behind.
 async function handle(req, res, url, send) {
+  const d = /^\/api\/device\/([^/]{1,64})$/.exec(url.pathname);
+  if (d) { await device(res, decodeURIComponent(d[1]), send); return true; }
   const m = /^\/api\/firmware\/([0-9A-Za-z_]{1,64})\.(json|dfu)$/.exec(url.pathname);
   if (!m) return false;
   const [, raw, ext] = m, version = url.searchParams.get('version'), channel = url.searchParams.get('channel');
@@ -161,4 +213,4 @@ function status() {
   try { return { account: !!account() }; } catch (e) { return { account: false, error: e.message, ...e.i18n }; }
 }
 
-module.exports = { handle, status, fetchInfo, fetchFirmware, cache, start: () => cache.start() };
+module.exports = { handle, status, fetchInfo, fetchFirmware, fetchDevice, cache, start: () => cache.start() };
