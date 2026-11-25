@@ -540,7 +540,7 @@ test('theme: Auto follows the system; Latte or Mocha picked is kept; Auto forget
 });
 
 // ------------------------------------------------------------------ the name
-test('name: Nwa Toolkit everywhere; the old name only in the GitHub repository URL', async () => {
+test('name: Nwa Toolkit everywhere, the old name nowhere', async () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
   assert.equal(pkg.name, 'nwa-toolkit');
   const en = (await import('../public/i18n/en.js')).default, fr = (await import('../public/i18n/fr.js')).default;
@@ -548,12 +548,13 @@ test('name: Nwa Toolkit everywhere; the old name only in the GitHub repository U
   assert.equal(fr['app.title'], 'Nwa Toolkit');
   const html = fs.readFileSync(pub('index.html'), 'utf8');
   assert.match(html, /<title>Nwa Toolkit<\/title>/);
+  assert.match(html, /href="https:\/\/github\.com\/SkyExploreWasTaken\/nwa-toolkit"/, 'the source link points at the renamed repository');
   const files = ['README.md', 'package.json', 'server.js', 'numworks.js', 'numplay.js', 'firmware-cache.js', 'serve.bat',
     ...fs.readdirSync(path.join(repo, 'tools')).map((f) => 'tools/' + f),
     ...['index.html', 'app.js', 'numplay-ui.js', 'theme.js', 'i18n/en.js', 'i18n/fr.js', ...fs.readdirSync(pub('lib')).map((f) => 'lib/' + f)].map((f) => 'public/' + f)];
   for (const f of files) {
     if (f === 'tools/test-gate.mjs') continue;
-    const src = fs.readFileSync(path.join(repo, f), 'utf8').replace(/https:\/\/github\.com\/SkyExploreWasTaken\/nwa-installer\b/g, '');
+    const src = fs.readFileSync(path.join(repo, f), 'utf8');
     assert.ok(!/nwa[ _-]?installer|this installer|cet installateur/i.test(src), f + ' still has the old name');
   }
 });
