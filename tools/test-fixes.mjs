@@ -292,9 +292,14 @@ test("model: NumWorks' own rules: the Portugal prototype by its serial, the N020
 
 test('model: no certain descriptor, no guess: the memories only narrow the choices', () => {
   // every model with an old descriptor (0x0100) or none: never picked, only the impossible ones left out
-  const expect = { N0100: ['N0100'], N0110: ['N0110', 'N0115'], N0115: ['N0110', 'N0115'],
+  const expect = { N0110: ['N0110', 'N0115'], N0115: ['N0110', 'N0115'],
     N0120: ['N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'], N0120_PORTUGAL_PROTOTYPE_20210930: ['N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'] };
-  for (const m of MODELS) {
+  // the N0100 is the one exception: 0x0100 with only its memories is certain
+  assert.deepEqual(detectModel({ usbVersion: [1, 0, 0], layouts: MEM.N0100 }), { model: 'N0100', certain: true, choices: ['N0100'] });
+  assert.deepEqual(detectModel({ usbVersion: null, layouts: MEM.N0100 }).model, null, 'no descriptor at all: still asked');
+  const n0100Plus = [...MEM.N0100, { name: 'Flash', segments: [{ start: 0x90000000, end: 0x90800000 }] }];
+  assert.equal(detectModel({ usbVersion: [1, 0, 0], layouts: n0100Plus }).model, null, 'internal and external flash: asked');
+  for (const m of MODELS.filter((x) => x !== 'N0100')) {
     const r = detectModel({ usbVersion: [1, 0, 0], layouts: MEM[m] });
     assert.equal(r.model, null, m + ': no guess');
     assert.equal(r.certain, false);

@@ -9,6 +9,7 @@
 //    it; their choice is kept for that calculator (by its serial number). The memories its DFU interface shows only
 //    rule out models it can't be (an N0100 has no external flash, only the N0120 has RAM at 0x24000000), never pick one.
 //  - 0x0120 is the N0120 Portugal prototype when its serial number is that prototype's (as NumWorks' page does).
+//  - 0x0100 with only the N0100's memories (1 MB internal flash, no external flash) is the N0100.
 // (The FCC ID shown in Settings > About, "2ALWP-N0xxx", is not used: on Epsilon 16+ it comes from the kernel, whose
 // source isn't public, and there's no N0115 FCC ID, so it can't be relied on.)
 //   detectModel({ usbVersion, productName, layouts }) -> { model: 'N0120' | null, certain, choices: [models possible] }
@@ -50,6 +51,11 @@ export function detectModel({ usbVersion = null, productName = '', serialNumber 
   // (only a NumWorks build's number is trusted: Upsilon's, for one, doesn't follow it)
   let model = bcd && PRODUCTS.test(productName) ? BY_BCD[bcd] || null : null;
   if (model === 'N0120' && serialNumber === PORTUGAL_PROTOTYPE_SERIAL) model = 'N0120_PORTUGAL_PROTOTYPE_20210930';
+  // 0x0100 (Epsilon 15 and older, Upsilon, Omega) with only the 1 MB internal flash and no external flash: only the
+  // N0100 is built that way, whatever software it runs. (With external flash it stays a question: Omega's experimental
+  // branch builds for the N0115 too, and answers 0x0100 and "NumWorks Calculator" like on an N0110.)
+  if (!model && bcd === '1.0.0' && choices.length === 1 && choices[0] === 'N0100'
+    && size(layouts, 0x08000000, 0x080fffff) >= 0x100000 && !size(layouts, 0x90000000, 0x9fffffff)) model = 'N0100';
   return { model, certain: !!model, choices: model ? [model] : choices.length ? choices : [...MODELS] };
 }
 
