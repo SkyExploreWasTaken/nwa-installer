@@ -3,6 +3,10 @@
 export default {
   'app.title': 'NWA Installer',
   'lang.label': 'Language',
+  'theme.label': 'Theme',
+  'theme.auto': 'Auto (system)',
+  'theme.latte': 'Latte (light)',
+  'theme.mocha': 'Mocha (dark)',
   'unit.kb': 'KB',
   'unit.mb': 'MB',
   'err.unknown': '{msg}',

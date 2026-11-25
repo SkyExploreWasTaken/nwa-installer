@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NWA Installer</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='2' width='20' height='28' rx='5' fill='%23e8743b'/%3E%3Crect x='9' y='5' width='14' height='9' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='2' width='20' height='28' rx='5' fill='%238839ef'/%3E%3Crect x='9' y='5' width='14' height='9' rx='2' fill='%23eff1f5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
+<script src="theme.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -29,6 +30,11 @@
       <ul class="pills" aria-label="About" data-i18n-aria-label="header.about">
         <li data-i18n="pill.noAccount">No account</li><li data-i18n="pill.local">Runs locally</li><li data-i18n="pill.browsers">Chrome &amp; Edge</li>
       </ul>
+      <select id="theme" class="theme" aria-label="Theme" data-i18n-aria-label="theme.label">
+        <option value="auto" data-i18n="theme.auto">Auto (system)</option>
+        <option value="latte" data-i18n="theme.latte">Latte (light)</option>
+        <option value="mocha" data-i18n="theme.mocha">Mocha (dark)</option>
+      </select>
       <select id="lang" class="lang" aria-label="Language" data-i18n-aria-label="lang.label">
         <option value="en">English</option>
         <option value="fr">Français</option>

@@ -149,7 +149,12 @@ export function initNumPlay({ log, free, add }) {
     b.dataset.id = id;
     b.setAttribute('aria-pressed', 'false');
     if (icon) { const img = el('img'); img.src = icon; img.alt = ''; img.loading = 'lazy'; b.append(img); }
-    else { const ph = el('span', 'ph', title.slice(0, 1)); ph.style.background = '#' + String(color || '0x888888').replace(/^0x/i, '').padStart(6, '0'); b.append(ph); }
+    else {
+      // (a game without an icon: its own colour from NumPlay's list when it has one, else the theme's, from style.css)
+      const ph = el('span', 'ph', title.slice(0, 1));
+      if (color) ph.style.background = '#' + String(color).replace(/^0x/i, '').padStart(6, '0');
+      b.append(ph);
+    }
     b.append(el('span', 't', title), el('span', 's', size(flash)));
     b._tip = { title, credit, big: tag === 'big' };
     b.title = tileTip(b._tip);

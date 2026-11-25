@@ -409,6 +409,153 @@ test('server: NODE_ENV=development (or unset) enables them', async () => {
   }
 });
 
+// ------------------------------------------------------------------ the theme (Catppuccin Latte / Mocha)
+// the official palettes (catppuccin.com), to check style.css against
+const CTP = {
+  latte: { rosewater: '#dc8a78', flamingo: '#dd7878', pink: '#ea76cb', mauve: '#8839ef', red: '#d20f39', maroon: '#e64553', peach: '#fe640b',
+    yellow: '#df8e1d', green: '#40a02b', teal: '#179299', sky: '#04a5e5', sapphire: '#209fb5', blue: '#1e66f5', lavender: '#7287fd', text: '#4c4f69',
+    subtext1: '#5c5f77', subtext0: '#6c6f85', overlay2: '#7c7f93', overlay1: '#8c8fa1', overlay0: '#9ca0b0', surface2: '#acb0be', surface1: '#bcc0cc',
+    surface0: '#ccd0da', base: '#eff1f5', mantle: '#e6e9ef', crust: '#dce0e8' },
+  mocha: { rosewater: '#f5e0dc', flamingo: '#f2cdcd', pink: '#f5c2e7', mauve: '#cba6f7', red: '#f38ba8', maroon: '#eba0ac', peach: '#fab387',
+    yellow: '#f9e2af', green: '#a6e3a1', teal: '#94e2d5', sky: '#89dceb', sapphire: '#74c7ec', blue: '#89b4fa', lavender: '#b4befe', text: '#cdd6f4',
+    subtext1: '#bac2de', subtext0: '#a6adc8', overlay2: '#9399b2', overlay1: '#7f849c', overlay0: '#6c7086', surface2: '#585b70', surface1: '#45475a',
+    surface0: '#313244', base: '#1e1e2e', mantle: '#181825', crust: '#11111b' },
+};
+const css = () => fs.readFileSync(pub('style.css'), 'utf8').replace(/\/\*[^]*?\*\//g, '');
+// the custom properties declared in the first block whose selector is exactly sel
+const block = (src, sel, nth = 0) => {
+  const re = new RegExp(sel.replace(/[[\]().*"=:]/g, '\\$&') + '\\s*\\{([^}]*)\\}', 'g');
+  const m = [...src.matchAll(re)][nth];
+  assert.ok(m, 'no block ' + sel);
+  return Object.fromEntries([...m[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]));
+};
+const rgbOf = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+// a colour value as the browser computes it: var(), color-mix(in srgb, A p%, B) (alpha ignored: only used on opaque pairs)
+function resolve(v, vars, depth = 0) {
+  assert.ok(depth < 20, 'loop at ' + v);
+  v = v.trim();
+  let m;
+  if ((m = /^var\((--[\w-]+)\)$/.exec(v))) { assert.ok(m[1] in vars, 'undefined ' + m[1]); return resolve(vars[m[1]], vars, depth + 1); }
+  if (/^#[0-9a-f]{6}$/i.test(v)) return rgbOf(v);
+  if ((m = /^color-mix\(in srgb, (.+?) (\d+)%, (.+)\)$/.exec(v))) {
+    const a = resolve(m[1], vars, depth + 1), p = +m[2] / 100, b = m[3] === 'transparent' ? null : resolve(m[3], vars, depth + 1);
+    return b ? a.map((x, i) => x * p + b[i] * (1 - p)) : a;
+  }
+  throw new Error('cannot resolve ' + v);
+}
+const luminance = (c) => { const [r, g, b] = c.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+// every theme's variables: Latte is :root; Mocha is :root[data-theme="mocha"] (and the same under prefers dark); the
+// roles (second :root block) on top of either
+function themeVars(flavour) {
+  const src = css();
+  const latte = block(src, ':root', 0), roles = block(src, ':root', 1);
+  const mocha = block(src, ':root[data-theme="mocha"]');
+  return flavour === 'latte' ? { ...latte, ...roles } : { ...latte, ...mocha, ...roles };
+}
+
+test('theme: style.css uses only the official Latte and Mocha palettes, as --ctp-* variables', () => {
+  const src = css();
+  for (const flavour of ['latte', 'mocha']) {
+    const v = themeVars(flavour);
+    for (const [name, hexv] of Object.entries(CTP[flavour])) assert.equal(v['--ctp-' + name]?.toLowerCase(), hexv, `${flavour} ${name}`);
+  }
+  // the same Mocha under prefers-color-scheme: dark (unless Latte was picked) as under data-theme="mocha"
+  const dark = /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="latte"\]\) \{([^}]*)\}\s*\}/.exec(src);
+  assert.ok(dark, 'Mocha follows a dark system');
+  assert.deepEqual(Object.fromEntries([...dark[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()])), block(src, ':root[data-theme="mocha"]'));
+  // no colour anywhere else: no hex outside a --ctp-* declaration, no rgb()/hsl(), no named colours
+  const palette = new Set(Object.values(CTP).flatMap((p) => Object.values(p)));
+  for (const m of src.matchAll(/([\w-]+)\s*:\s*([^;{}]+)[;}]/g)) {
+    const [, prop, value] = m;
+    if (/^--ctp-/.test(prop)) { assert.ok(palette.has(value.trim().toLowerCase()), `${prop}: ${value} is not a Catppuccin colour`); continue; }
+    assert.ok(!/#[0-9a-f]{3,8}\b/i.test(value), `${prop}: ${value}: a colour outside the palette variables`);
+    assert.ok(!/\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/i.test(value), `${prop}: ${value}`);
+    if (!/^(white-space|font|font-family|display|text-transform|content|list-style|outline-style)$/.test(prop))
+      assert.ok(!/(^|[\s,(])(white|black|red|orange|yellow|green|blue|gray|grey|silver|purple|pink|brown)([\s,)]|$)/i.test(value), `${prop}: ${value}: a named colour`);
+    for (const mix of value.matchAll(/color-mix\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g)) assert.match(mix[1], /^in srgb, var\(--[\w-]+\) \d+%, (var\(--[\w-]+\)|transparent)$/, value);
+  }
+  // nor in the page and its scripts
+  const html = fs.readFileSync(pub('index.html'), 'utf8');
+  for (const m of html.matchAll(/%23([0-9a-f]{3,6})/gi)) assert.ok(palette.has('#' + m[1].toLowerCase()), 'favicon colour #' + m[1]);
+  assert.ok(!/\sstyle="/.test(html));
+  for (const f of ['app.js', 'numplay-ui.js']) {
+    const js = fs.readFileSync(pub(f), 'utf8');
+    assert.ok(!/['"`]#[0-9a-f]{3,8}['"`]|rgba?\(/i.test(js), f + ': no colour in the code');
+  }
+});
+
+test('theme: text stays readable in Latte and Mocha (WCAG 4.5:1)', () => {
+  const pairs = [
+    ['body text', 'var(--text)', 'var(--card)'], ['body text, inner panels', 'var(--text)', 'var(--card-2)'], ['body text, page', 'var(--text)', 'var(--bg)'],
+    ['muted text', 'var(--muted)', 'var(--card)'], ['muted text, inner panels', 'var(--muted)', 'var(--card-2)'], ['footer', 'var(--muted)', 'var(--bg)'],
+    ['success', 'var(--ok-text)', 'var(--card)'], ['success, inner panels', 'var(--ok-text)', 'var(--card-2)'],
+    ['error', 'var(--bad-text)', 'var(--card)'], ['error, inner panels', 'var(--bad-text)', 'var(--card-2)'],
+    ['warning', 'var(--warn-text)', 'var(--card)'], ['warning, inner panels', 'var(--warn-text)', 'var(--card-2)'],
+    ['links', 'var(--accent-text)', 'var(--card)'], ['links, inner panels', 'var(--accent-text)', 'var(--card-2)'], ['tags', 'var(--accent-text)', 'var(--accent-soft)'],
+    ['code and picked tiles', 'var(--text)', 'var(--accent-soft)'],
+    ['primary buttons', 'var(--on-accent)', 'var(--accent)'], ['Write it (danger)', 'var(--on-accent)', 'var(--ctp-red)'],
+    ['refusal pop-up', 'var(--ctp-text)', 'color-mix(in srgb, var(--ctp-red) 16%, var(--ctp-base))'],
+    ['skipped-update pop-up', 'var(--ctp-text)', 'color-mix(in srgb, var(--ctp-peach) 16%, var(--ctp-base))'],
+    ['test-mode badge', 'var(--sim-label-fg)', 'var(--sim-label-bg)'],
+    ['progress label on the track', 'var(--text)', 'var(--free)'], ['progress label on the fill', 'var(--text)', 'color-mix(in srgb, var(--accent) 30%, var(--ctp-base))'],
+    ['app badges', 'var(--text)', 'var(--ctp-surface0)'],
+  ];
+  const report = [];
+  for (const flavour of ['latte', 'mocha']) {
+    const v = themeVars(flavour);
+    for (const [what, fg, bg] of pairs) {
+      const c = contrast(resolve(fg, v), resolve(bg, v));
+      report.push(`${flavour} ${what}: ${c.toFixed(2)}`);
+      assert.ok(c >= 4.5, `${flavour}, ${what}: ${c.toFixed(2)}:1 is under 4.5:1`);
+    }
+  }
+  // (the CSS really uses these roles where it says)
+  const src = css();
+  assert.match(src, /#status\.warn, \.warn \{ color: var\(--bad-text\); \}/);
+  assert.match(src, /#status\.ok \{ color: var\(--ok\);/);
+  assert.match(src, /dialog\.notice \{ --notice: var\(--ctp-red\);[^}]*background: color-mix\(in srgb, var\(--notice\) 16%, var\(--ctp-base\)\); color: var\(--ctp-text\); \}/);
+  assert.match(src, /dialog\.notice\[data-kind="outdated"\] \{ --notice: var\(--ctp-peach\); \}/);
+  if (process.env.CONTRAST) console.log(report.join('\n'));
+});
+
+test('theme: Auto follows the system; Latte or Mocha picked is kept; Auto forgets it', async () => {
+  const vm = await import('vm');
+  const src = fs.readFileSync(pub('theme.js'), 'utf8');
+  const run = (stored) => {
+    const store = new Map(stored ? [['nwa.theme', stored]] : []);
+    const attrs = new Map(), listeners = {};
+    const sel = { value: '', listeners: {}, addEventListener(t, f) { this.listeners[t] = f; } };
+    const ctx = {
+      localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) },
+      document: { documentElement: { setAttribute: (k, v) => attrs.set(k, v), removeAttribute: (k) => attrs.delete(k) },
+        addEventListener: (t, f) => { listeners[t] = f; }, getElementById: (id) => (id === 'theme' ? sel : null) },
+    };
+    vm.runInNewContext(src, ctx);
+    listeners.DOMContentLoaded();
+    return { store, attrs, sel, pick: (v) => { sel.value = v; sel.listeners.change(); } };
+  };
+  let r = run(null);
+  assert.equal(r.attrs.get('data-theme'), undefined, 'nothing saved: Auto (the system decides)');
+  assert.equal(r.sel.value, 'auto');
+  r.pick('mocha');
+  assert.equal(r.attrs.get('data-theme'), 'mocha');
+  assert.equal(r.store.get('nwa.theme'), 'mocha', 'remembered');
+  r = run('latte');
+  assert.equal(r.attrs.get('data-theme'), 'latte', 'a saved choice wins over the system');
+  assert.equal(r.sel.value, 'latte');
+  r.pick('auto');
+  assert.equal(r.attrs.get('data-theme'), undefined);
+  assert.ok(!r.store.has('nwa.theme'), 'Auto clears the override');
+  r = run('frappe');
+  assert.equal(r.attrs.get('data-theme'), undefined, 'only Latte and Mocha');
+  const html = fs.readFileSync(pub('index.html'), 'utf8');
+  assert.match(html, /<link rel="stylesheet" href="style\.css">\s*<script src="theme\.js"><\/script>/, 'set before the page is drawn');
+  assert.match(html, /<select id="theme"[^>]*data-i18n-aria-label="theme\.label">\s*<option value="auto" data-i18n="theme\.auto">[^<]*<\/option>\s*<option value="latte" data-i18n="theme\.latte">[^<]*<\/option>\s*<option value="mocha" data-i18n="theme\.mocha">/);
+  const en = (await import('../public/i18n/en.js')).default, fr = (await import('../public/i18n/fr.js')).default;
+  for (const k of ['theme.label', 'theme.auto', 'theme.latte', 'theme.mocha']) assert.ok(en[k] && fr[k], k);
+});
+
 // ------------------------------------------------------------------ run
 let passed = 0, failed = 0;
 for (const [name, fn] of tests) {

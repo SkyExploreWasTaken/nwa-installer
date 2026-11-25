@@ -127,6 +127,10 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 | `npm test` | signs in to a pretend my.numworks.com and fetches its firmware, the way `numworks.js` does with the real one |
 | `node tools/dump-mock.mjs` and `node tools/make-mock-firmware.mjs` | save what http://localhost:8642/?mock needs: the page on a pretend copy of your calculator, writing to memory only |
 
+### Theme
+The page uses Catppuccin: Latte when the system is light, Mocha when it is dark. The picker next to the language one
+(Auto / Latte / Mocha) overrides the system and is remembered in this browser; Auto goes back to following it.
+
 ### Test mode and production
 `npm start` (or serve.bat) serves http://localhost:8642/. Without `NODE_ENV=production` these developer URLs work:
 `?mock` (a pretend N0120), `?debug` (state on `window.nwaDebug`), and the TEST MODE, which simulates a calculator,

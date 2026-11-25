@@ -3,6 +3,10 @@
 // Les termes techniques (DFU, firmware, flash, Nwagra, slot, Epsilon) restent tels quels.
 export default {
   'app.title': 'NWA Installer',
+  'theme.label': 'Thème',
+  'theme.auto': 'Automatique (système)',
+  'theme.latte': 'Latte (clair)',
+  'theme.mocha': 'Mocha (sombre)',
   'lang.label': 'Langue',
   'unit.kb': 'Ko',
   'unit.mb': 'Mo',
