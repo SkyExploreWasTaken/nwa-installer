@@ -110,6 +110,8 @@ export default {
   'restore.noFit': 'Cette sauvegarde ne tient pas dans la zone des applis de cette calculatrice.',
   'restore.confirm': 'Écrire {file} ({size:size}) sur la zone des applis ? Les applis actuelles de la calculatrice sont remplacées par celles de la sauvegarde.',
   'info.model': 'Modèle',
+  'info.modelGuessed': '{model} (deviné d’après sa mémoire : ce logiciel n’indique pas le modèle)',
+  'fw.modelGuessed': 'Le modèle de cette calculatrice n’a pu qu’être deviné d’après sa mémoire (une N0110 et une N0115 se ressemblent) : pour ne pas écrire le firmware d’un autre modèle, les mises à jour sont désactivées ici. Utilisez le site de NumWorks pour celle-ci.',
   'info.software': 'Logiciel',
   'info.softwareVal': 'Epsilon {version} ({patch}), slot {slot}',
   'info.area': 'Zone des applis',

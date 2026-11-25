@@ -108,6 +108,8 @@ export default {
   'restore.noFit': "That backup doesn't fit this calculator's app area.",
   'restore.confirm': 'Write {file} ({size:size}) over the app area? The apps on the calculator now are replaced by the ones in the backup.',
   'info.model': 'Model',
+  'info.modelGuessed': '{model} (guessed from its memory layout: this software does not say which model it is)',
+  'fw.modelGuessed': "This calculator's model could only be guessed from its memory layout (an N0110 and an N0115 look the same): so as not to write another model's firmware, updates are turned off here. Use NumWorks' site for this one.",
   'info.software': 'Software',
   'info.softwareVal': 'Epsilon {version} ({patch}), slot {slot}',
   'info.area': 'App area',

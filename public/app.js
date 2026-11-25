@@ -109,7 +109,7 @@ async function connect(dev) {
     st.dev = st.dfu = st.info = st.scan = null;
     throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
   }
-  log(`Connected: ${st.info.model}, Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
+  log(`Connected: ${st.info.model}${st.info.modelGuessed ? ' (guessed from its memory layout: ' + st.info.modelMethod + ')' : ' (from its USB descriptor)'}, Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
   await rescan();
   status(T('connect.ok', { name: dev.productName || 'NumWorks', model: st.info.model }), 'ok');
   loadTools().catch((e) => log('Linker: ' + e.message));
@@ -232,7 +232,7 @@ function render() {
   const info = $('#info');
   info.textContent = '';
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
-  add(t('info.model'), i.model);
+  add(t('info.model'), i.modelGuessed ? t('info.modelGuessed', { model: i.model }) : i.model);
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
   add(t('info.nwagra'), i.nwagraOk ? t('info.areaVal', { start: hex(i.appsStart), end: hex(i.nwagraEnd), size: i.nwagraEnd - i.appsStart }) : t('info.nwagraNo'));
@@ -364,6 +364,8 @@ const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
 $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
+  // (a guessed model could be the wrong one: an N0115 can look like an N0110, and its firmware is not the same)
+  if (st.info.modelGuessed && !MOCK) { fwSetup(T('fw.modelGuessed')); return; }
   const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup(T('fw.needServer')); return; }
   if (!s.account) { fwSetup(s.error ? () => errText(s.code ? s : { message: s.error }) : T('fw.needAccount')); return; }

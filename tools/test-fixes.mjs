@@ -5,6 +5,7 @@
 //  - firmware-cache.js: all known models seeded; stable and beta kept per model, channel and version; checks once at
 //    start and then every hour; requests only read the cache; a missing channel or model is skipped; falls back to the
 //    kept copies when NumWorks can't be reached; a model not on the list is added when first seen; never overwrites
+//  - model.js: the model from the USB descriptor, else guessed from the memories (all five models)
 //  - numplay.js: only the manifest's paths, only bytes matching their pinned sha256
 //  - server.js: security headers on every response; /api/firmware answers from the cache without any network
 //   node tools/test-fixes.mjs
@@ -253,6 +254,63 @@ test('version: a kept beta is labeled, and never the default unless the calculat
   assert.equal(c.options.find((o) => o.version === '25.0.0').channel, 'beta');
   c = firmwareChoices(info, { version: '25.0.0' });
   assert.equal(c.selected, '25.0.0', 'on the beta already: stay on it');
+});
+
+// ------------------------------------------------------------------ which model (model.js)
+const { detectModel, usbVersionOf } = await import('../public/lib/model.js');
+// the memories each model's DFU interface shows (Epsilon's usb_userland.h / Upsilon.js)
+const MEM = {
+  N0100: [{ name: 'Internal Flash', segments: [{ start: 0x08000000, end: 0x08100000 }] }, { name: 'SRAM', segments: [{ start: 0x20000000, end: 0x20040000 }] }],
+  N0110: [{ name: 'Flash', segments: [{ start: 0x90030000, end: 0x90400000 }] }, { name: 'SRAM', segments: [{ start: 0x20000000, end: 0x20040000 }] }],
+  N0115: [{ name: 'Flash', segments: [{ start: 0x90030000, end: 0x90400000 }] }, { name: 'SRAM', segments: [{ start: 0x20000000, end: 0x20040000 }] }],
+  N0120: [{ name: 'Flash', segments: [{ start: 0x90030000, end: 0x90400000 }] }, { name: 'SRAM', segments: [{ start: 0x24000000, end: 0x2403f000 }] }],
+};
+// a WebUSB device as the calculator describes itself: bcdDevice 0x0115 is 1.1.5
+const usbDev = (bcd, productName = 'NumWorks Calculator') => ({ productName, deviceVersionMajor: bcd >> 8, deviceVersionMinor: (bcd >> 4) & 15, deviceVersionSubminor: bcd & 15 });
+
+test('model: N0110, N0115, N0120 from the USB descriptor (bcdDevice)', () => {
+  for (const [model, bcd] of [['N0110', 0x0110], ['N0115', 0x0115], ['N0120', 0x0120]]) {
+    const d = usbDev(bcd);
+    assert.deepEqual(detectModel({ usbVersion: usbVersionOf(d), productName: d.productName, layouts: MEM[model] }), { model, method: 'usb', guessed: false }, model);
+  }
+  // the descriptor wins over the memories: an N0115 shows the N0110's
+  assert.equal(detectModel({ usbVersion: [1, 1, 5], layouts: MEM.N0110 }).model, 'N0115');
+});
+
+test('model: N0100 (bcdDevice 0x0100, as every Epsilon 15) from its 1 MB internal flash, marked guessed', () => {
+  assert.deepEqual(detectModel({ usbVersion: usbVersionOf(usbDev(0x0100)), layouts: MEM.N0100 }), { model: 'N0100', method: 'memory', guessed: true });
+});
+
+test('model: Epsilon 15 or Upsilon on an N0110 falls back on the memories, marked guessed', () => {
+  assert.deepEqual(detectModel({ usbVersion: [1, 0, 0], layouts: MEM.N0110 }), { model: 'N0110', method: 'memory', guessed: true });
+  assert.deepEqual(detectModel({ usbVersion: [1, 1, 0], productName: 'Upsilon Calculator', layouts: MEM.N0110 }), { model: 'N0110', method: 'memory', guessed: true });
+  assert.deepEqual(detectModel({ usbVersion: null, layouts: MEM.N0120 }), { model: 'N0120', method: 'memory', guessed: true }, 'no descriptor (the mock)');
+});
+
+test('model: the Portugal prototype shows as an N0120 (nothing public tells it apart)', () => {
+  assert.equal(detectModel({ usbVersion: [1, 2, 0], layouts: MEM.N0120 }).model, 'N0120');
+});
+
+test('model: readInfo takes the model from the USB device', async () => {
+  const { readInfo } = await import('../public/lib/calc.js');
+  // a calculator whose RAM holds the slot info, and the headers it points at
+  const mem = new Map();
+  const put = (addr, bytes) => mem.set(addr, Uint8Array.from(bytes));
+  const le = (n) => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const str = (s, n) => [...Buffer.from(s.padEnd(n, '\0'))];
+  const SLOT = [0xba, 0xdb, 0xee, 0xef], KERNEL = [0xf0, 0x0d, 0xc0, 0xde], USERLAND = [0xfe, 0xed, 0xc0, 0xde];
+  put(0x24000000, [...SLOT, ...le(0x90000008), ...le(0x90010000), ...SLOT]);
+  put(0x90000008, [...KERNEL, ...str('24.4.0', 8), ...str('abcdef1', 8), ...KERNEL]);
+  put(0x90010000, [...USERLAND, ...str('24.4.0', 8), ...le(0x24030000), ...le(0x8000), ...le(0x90180000), ...le(0x90400000),
+    ...le(0x24010000), ...le(0x24020000), ...USERLAND, ...new Array(16).fill(0)]);
+  const dfu = { device: usbDev(0x0120), layouts: MEM.N0120,
+    read: async (addr, n) => { for (const [a, b] of mem) if (addr === a) return Uint8Array.from({ length: n }, (_, i) => b[i] ?? 0); return new Uint8Array(n).fill(0xff); } };
+  const info = await readInfo(dfu);
+  assert.equal(info.model, 'N0120');
+  assert.equal(info.modelGuessed, false);
+  assert.equal(info.ramStart, 0x24000000);
+  dfu.device = usbDev(0x0100);
+  assert.equal((await readInfo(dfu)).modelGuessed, true, 'an old descriptor: guessed');
 });
 
 // ------------------------------------------------------------------ numplay.js: pinned and checked
