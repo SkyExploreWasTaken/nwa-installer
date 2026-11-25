@@ -13,14 +13,14 @@ import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
-import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, limitedActionError, limitedFirmwareError } from './lib/gate.js';
+import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, limitedActionError, limitedFirmwareError, refusalOf } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 applyDom();
 initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null, warned: false, refused: null };
+const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null, warned: false, notice: null };
 const T = (key, vars) => () => t(key, vars);  // a text to draw now and again on a language change
 // an error the page itself throws, with a code for its text (err.<code>) and the English message for the log
 const uiError = (code, params, message, cause) => new InstallerError(code, params, message, cause ? { cause } : undefined);
@@ -70,8 +70,12 @@ async function job(name, fn) {
   render();
   try { return await fn(); } catch (e) {
     log(name + ' failed: ' + (e.message || e));
-    // (software the page can't work with says so on its own, without "Connecting failed:")
-    status(() => (/^calc\.(tooOld|n0100|updateFirst|unknownModel|unofficial\.)/.test(e.code || '') ? errText(e) : t('fail.' + name, { msg: errText(e) })), 'warn');
+    // a calculator this page refuses (lib/gate.js refusalOf): a pop-up saying why, then back to not connected
+    const refusal = refusalOf(e.code);
+    if (refusal) {
+      status(() => errText(e), 'warn');
+      showNotice({ kind: 'refusal', title: T(refusal.title), text: () => errText(e), onClose: () => { status(T('connect.hint')); render(); } });
+    } else status(() => t('fail.' + name, { msg: errText(e) }), 'warn');
     console.error(e);
   } finally { st.busy = false; render(); }
 }
@@ -109,7 +113,6 @@ async function connect(dev) {
   if (st.dfu) await st.dfu.close();
   st.dev = dev;
   st.outdated = null;
-  st.refused = null;
   st.warned = false;  // (the very big warning: once per connection, until its OK)
   st.dfu = SIM ? sim.simulatedDevice(SIM) : MOCK ? await (await import('./dev/mockdfu.js')).mockDevice() : new Dfu(dev);
   try {
@@ -121,10 +124,8 @@ async function connect(dev) {
     // let go of the calculator, so a new try (or another program) can have it
     await st.dfu.close().catch(() => {});
     st.dev = st.dfu = st.info = st.scan = null;
-    // the N0100: the refusal screen (the very big banner, without OK: there's nothing to go on to)
-    if (e.code === 'calc.n0100') { st.refused = 'n0100'; log('Refused: N0100 (too old, no storage for .nwa apps, no longer updated by NumWorks)'); }
-    // (software this page can't work with: its own message, without "unplug and connect again", which won't help)
-    if (/^calc\.(tooOld|n0100|updateFirst|unknownModel|unofficial\.)/.test(e.code || '')) throw e;
+    // (a calculator this page refuses: its own message, in a pop-up, without "unplug and connect again", which won't help)
+    if (refusalOf(e.code)) throw e;
     throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
   }
   if (st.info.limited) return connectLimited(dev);
@@ -272,7 +273,6 @@ function render() {
   $('#connect').textContent = t(on ? 'connect.again' : 'connect.button');
   for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !full) || (b.id === 'connect' && NO_USB);
   drawSimBadge();
-  drawBigWarning();
   drawOutdated();
   if (!on) return;
   const i = st.info;
@@ -606,16 +606,31 @@ $('#fw-install').addEventListener('click', async () => {
 });
 
 // ------------------------------------------------------------------ half-supported calculators (lib/gate.js)
-// The very big banner at the top of the page: the N0100's refusal (no OK: nothing to go on to), or, once per
-// connection until its OK, the warning for an outdated N0110/N0115 whose update was skipped.
-function drawBigWarning() {
-  const which = st.refused || limitedView({ connected: !!st.info, limited: st.info?.limited, outdatedStep: st.outdated?.step, dismissed: st.warned }).warning;
-  $('#big-warning').hidden = !which;
-  if (!which) return;
-  $('#big-warning-title').textContent = t(`warn.${which}.title`);
-  $('#big-warning-text').textContent = t(`warn.${which}.body`);
-  $('#big-warning-ok').hidden = which !== 'outdated';
+// The pop-up (a modal <dialog>, #notice): a refused calculator, or, once per connection, the warning for an outdated
+// N0110/N0115 whose update was skipped. n: { kind: 'refusal' | 'outdated', title: T(...), text: T(...), onClose }.
+// Its OK, Esc or the close button all close it; Tab stays on its OK (the page behind is inert while it's open).
+function showNotice(n) {
+  const d = $('#notice');
+  if (d.open) d.close();  // (the one before, closed as by its OK)
+  st.notice = n;
+  drawNotice();
+  d.showModal();
+  $('#notice-ok').focus();
 }
+function drawNotice() {
+  if (!st.notice) return;
+  $('#notice').dataset.kind = st.notice.kind;
+  $('#notice-title').textContent = st.notice.title();
+  $('#notice-text').textContent = st.notice.text();
+}
+$('#notice').addEventListener('close', () => {
+  const n = st.notice;
+  st.notice = null;
+  n?.onClose?.();
+});
+$('#notice').addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') { e.preventDefault(); $('#notice-ok').focus(); }  // (its only control)
+});
 
 function drawSimBadge() {
   if (!SIM) return;
@@ -703,17 +718,20 @@ function drawOutdated() {
 for (const b of document.querySelectorAll('.od-pick')) b.addEventListener('click', () => {
   st.outdated?.chooseModel(b.dataset.model).catch((e) => log('Model: ' + e.message));
 });
-// OK on the very big warning: gone for this connection, and the page as for any calculator
-$('#big-warning-ok').addEventListener('click', () => {
-  st.warned = true;
-  log('Warning read (OK): the page as usual; what this calculator cannot do says so.');
-  render();
-});
 $('#od-version').addEventListener('change', (e) => st.outdated?.select(e.target.value));
 $('#od-skip').addEventListener('click', () => {
   if (!st.outdated?.skip()) return;
   log('Update skipped: nothing written. This firmware is not really supported by this installer.');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // the warning, once per connection; its OK: the page as for any calculator
+  if (limitedView({ connected: !!st.info, limited: st.info?.limited, outdatedStep: st.outdated.step, dismissed: st.warned }).warning) {
+    const conn = st.dfu;
+    showNotice({ kind: 'outdated', title: T('warn.outdated.title'), text: T('warn.outdated.body'), onClose: () => {
+      if (st.dfu !== conn) return;  // (unplugged meanwhile)
+      st.warned = true;
+      log('Warning read (OK): the page as usual; what this calculator cannot do says so.');
+      render();
+    } });
+  }
 });
 $('#od-update').addEventListener('click', async () => {
   const f = st.outdated;
@@ -756,6 +774,7 @@ const numplay = initNumPlay({
 window.addEventListener('langchange', () => {
   drawStatus();
   drawFwSetup();
+  drawNotice();
   for (const box of [$('#progress'), $('#fw-progress'), $('#od-progress')]) drawProgress(box);
   const d = $('#confirm');
   if (d.open && d._text) $('#confirm-text').textContent = d._text();

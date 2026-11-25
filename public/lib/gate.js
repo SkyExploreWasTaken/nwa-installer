@@ -104,8 +104,17 @@ export function pickFlasher({ simulate, real, simulated }) {
   return simulated;
 }
 
+// a connect-time error that refuses the calculator (shown in a pop-up, then back to not connected) -> { title } or null:
+// the N0100, software too old or unofficial, a model that doesn't say which it is or isn't known
+export function refusalOf(code) {
+  if (typeof code !== 'string') return null;
+  if (code === 'calc.n0100') return { title: 'warn.n0100.title' };
+  if (/^calc\.(tooOld|updateFirst|unknownModel|unofficial\.\w+)$/.test(code)) return { title: 'refuse.title' };
+  return null;
+}
+
 // What the page shows for the calculator connected now:
-//   warning: 'outdated' | null  the very big warning after Skip update, until its OK (dismissed, once per connection)
+//   warning: 'outdated' | null  the warning pop-up after Skip update, until its OK (dismissed, once per connection)
 //   normal: the usual sections (apps, install, software)   outdatedFlow: the outdated N0110/N0115 model/version step
 export function limitedView({ connected, limited = null, outdatedStep = null, dismissed = false }) {
   if (!connected) return { warning: null, normal: false, outdatedFlow: false };

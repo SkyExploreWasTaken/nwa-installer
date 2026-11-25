@@ -282,8 +282,8 @@ export default {
   'err.numplay.hash': "NumPlay's {file} does not match its pinned checksum: refused",
   // ---- half-supported calculators (lib/gate.js) and the test mode (lib/simulate.js)
   'warn.n0100.title': "The N0100 can't be used with this tool",
-  'warn.n0100.body': 'This model is too old: it has no storage for .nwa apps, and NumWorks itself has stopped updating the N0100, so this tool cannot do anything with it.',
   'warn.ok': 'OK',
+  'refuse.title': "This calculator can't be used with this tool",
   'warn.outdated.title': "This calculator's software is not really supported",
   'warn.outdated.body': "You skipped the update: its firmware is outdated, and this tool doesn't really support it. Nothing was written to the calculator. Press OK to go on: what can't work with this firmware will say so. To update it later, connect again.",
   'limited.why.outdated': "its outdated firmware doesn't say where its apps and files are",

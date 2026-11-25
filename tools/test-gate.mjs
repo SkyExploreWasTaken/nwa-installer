@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Tests for the half-supported calculators (public/lib/gate.js), the TEST MODE (public/lib/simulate.js) and the one gate
 // for every developer feature (public/lib/env.js, fed by server.js from NODE_ENV). No network, no calculator:
-//  - the N0100: refused (refusal screen, no OK), nothing read from it, never any firmware (assertFirmwareAllowed)
+//  - the N0100 and every other connect-time refusal: a pop-up (modal dialog, OK/Esc), then not connected; nothing read
+//    from the N0100, never any firmware (assertFirmwareAllowed)
 //  - an N0110/N0115 on outdated firmware: model asked, every cached version listed oldest first with the oldest picked,
 //    nothing flashed before an explicit confirm of the version shown, then exactly that one; skipping never flashes,
 //    shows the warning once per connection, and after its OK the normal page, where what can't work says so
@@ -21,7 +22,7 @@ const pub = (...p) => path.join(repo, 'public', ...p);
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-const { OutdatedFlow, OUTDATED_MODELS, assertFirmwareAllowed, cachedVersions, pickFlasher, limitedView, limitedActionError, limitedFirmwareError } = await import('../public/lib/gate.js');
+const { OutdatedFlow, OUTDATED_MODELS, assertFirmwareAllowed, cachedVersions, pickFlasher, limitedView, limitedActionError, limitedFirmwareError, refusalOf } = await import('../public/lib/gate.js');
 const { detectModel, usbVersionOf } = await import('../public/lib/model.js');
 const { readInfo } = await import('../public/lib/calc.js');
 const { simulatedDevice, simulatedFlash, simulatedModel, SIMULATED_IDS, SIMULATED_VERSIONS } = await import('../public/lib/simulate.js');
@@ -87,16 +88,14 @@ test('N0100: firmware is never allowed, whatever asks (logic guard, not just the
 
 test('N0100: the page shows the refusal screen (no OK) and has no firmware path for it', () => {
   const app = fs.readFileSync(pub('app.js'), 'utf8'), html = fs.readFileSync(pub('index.html'), 'utf8');
-  assert.match(html, /<main>\s*<div id="big-warning" class="big-warning" role="alert" hidden>/, 'the banner is the first thing in the flow');
-  assert.match(app, /if \(e\.code === 'calc\.n0100'\) \{ st\.refused = 'n0100';/, 'a refused N0100 sets the refusal screen');
-  assert.match(app, /const which = st\.refused \|\| limitedView\(/, 'shown first');
-  assert.match(app, /\$\('#big-warning-ok'\)\.hidden = which !== 'outdated';/, 'no OK on the refusal');
+  assert.equal(refusalOf('calc.n0100').title, 'warn.n0100.title', 'its own title in the pop-up');
+  assert.match(app, /const refusal = refusalOf\(e\.code\);\s*if \(refusal\) \{\s*status\(\(\) => errText\(e\), 'warn'\);\s*showNotice\(\{ kind: 'refusal', title: T\(refusal\.title\), text: \(\) => errText\(e\), onClose: \(\) => \{ status\(T\('connect\.hint'\)\); render\(\); \} \}\);/,
+    'a refusal: the pop-up, then back to not connected');
   assert.match(app, /if \(!st\.info\) return;\s*assertFirmwareAllowed\(st\.info\.model\);/, 'Check for updates guarded');
   assert.match(app, /if \(!i \|\| i\.limited \|\| !p\?\.available\) return;\s*try \{ assertFirmwareAllowed\(i\.model\); \}/, 'Update guarded');
   assert.match(app, /async function flashOutdated\(model, option\) \{[^]*?assertFirmwareAllowed\(model\);/, 'the outdated flasher guarded');
   const css = fs.readFileSync(pub('style.css'), 'utf8');
-  assert.match(css, /\.big-warning \{[^}]*background: #b00020;/);
-  assert.match(css, /\.big-warning h2 \{[^}]*font-size: 26px;/);
+  assert.match(css, /dialog\.notice \{/);
 });
 
 // ------------------------------------------------------------------ an outdated N0110 / N0115
@@ -190,7 +189,8 @@ test('outdated: Skip update shows the same very big warning and never flashes', 
   assert.deepEqual(fresh.flashed, []);
   // the page: the same banner element, its outdated text, after a skip
   const app = fs.readFileSync(pub('app.js'), 'utf8');
-  assert.match(app, /const which = st\.refused \|\| limitedView\(\{ connected: !!st\.info, limited: st\.info\?\.limited, outdatedStep: st\.outdated\?\.step, dismissed: st\.warned \}\)\.warning;/);
+  assert.match(app, /if \(limitedView\(\{ connected: !!st\.info, limited: st\.info\?\.limited, outdatedStep: st\.outdated\.step, dismissed: st\.warned \}\)\.warning\) \{\s*const conn = st\.dfu;\s*showNotice\(\{ kind: 'outdated', title: T\('warn\.outdated\.title'\), text: T\('warn\.outdated\.body'\)/,
+    'Skip update: the warning pop-up');
   assert.match(fs.readFileSync(pub('index.html'), 'utf8'), /<button id="od-skip"[^>]*data-i18n="od\.skip">Skip update<\/button>/);
 });
 
@@ -213,8 +213,8 @@ test('skipped: the warning once, OK dismisses it, then the normal page; a new co
   assert.deepEqual(limitedView({ connected: true }), { warning: null, normal: true, outdatedFlow: false }, 'a calculator on recent firmware: as before');
   assert.deepEqual(limitedView({ connected: false }), { warning: null, normal: false, outdatedFlow: false });
   const app = fs.readFileSync(pub('app.js'), 'utf8'), html = fs.readFileSync(pub('index.html'), 'utf8');
-  assert.match(html, /<button id="big-warning-ok"[^>]*data-i18n="warn\.ok">OK<\/button>/);
-  assert.match(app, /\$\('#big-warning-ok'\)\.addEventListener\('click', \(\) => \{\s*st\.warned = true;/, 'OK dismisses');
+  assert.match(html, /<button id="notice-ok" value="ok" class="primary big" data-i18n="warn\.ok">OK<\/button>/);
+  assert.match(app, /onClose: \(\) => \{\s*if \(st\.dfu !== conn\) return;[^}]*\s*st\.warned = true;/, 'OK (or Esc) dismisses it for this connection');
   assert.match(app, /st\.warned = false;\s*\/\/ \(the very big warning: once per connection/, 'reset on each connection');
   assert.match(app, /const full = view\.normal;\s*\$\('#s-apps'\)\.hidden = \$\('#s-new'\)\.hidden = \$\('#s-fw'\)\.hidden = !full;/, 'normal sections follow the view');
 });
@@ -240,6 +240,33 @@ test('skipped: after OK, what can\'t work on that firmware says so; firmware sti
   ]) assert.match(app, re, what);
 });
 
+test('pop-up: every connect-time refusal is one; other errors are not', () => {
+  for (const c of ['calc.n0100', 'calc.tooOld', 'calc.updateFirst', 'calc.unknownModel', 'calc.unofficial.thirdParty', 'calc.unofficial.upsilon',
+    'calc.unofficial.omega', 'calc.unofficial.upsilonBootloader']) assert.ok(refusalOf(c), c);
+  assert.equal(refusalOf('calc.tooOld').title, 'refuse.title');
+  for (const c of ['connect.retry', 'calc.noKernel', 'limited.outdated', 'fw.check', undefined, null, 'calc.unofficial.']) assert.equal(refusalOf(c), null, String(c));
+  // every refusal the page knows has its text in both languages
+  const app = fs.readFileSync(pub('app.js'), 'utf8');
+  assert.ok(!/calc\\\.\(tooOld\|n0100/.test(app), 'no second list of refusals in app.js');
+  assert.match(app, /if \(refusalOf\(e\.code\)\) throw e;/, 'connect passes refusals through as they are');
+});
+
+test('pop-up: a modal dialog, labelled, with OK; Esc and OK close it; Tab stays in it; nothing written', () => {
+  const html = fs.readFileSync(pub('index.html'), 'utf8'), app = fs.readFileSync(pub('app.js'), 'utf8');
+  const dlg = /<dialog id="notice"[^>]*>[^]*?<\/dialog>/.exec(html)?.[0] || '';
+  assert.match(dlg, /aria-modal="true"/);
+  assert.match(dlg, /aria-labelledby="notice-title"/);
+  assert.match(dlg, /aria-describedby="notice-text"/);
+  assert.match(dlg, /<form method="dialog">/, 'OK closes it (a dialog form), and Esc does too (a modal <dialog>)');
+  assert.ok(!/<input|<select|<textarea/.test(dlg), 'nothing to fill in');
+  assert.match(app, /d\.showModal\(\);\s*\$\('#notice-ok'\)\.focus\(\);/, 'modal (the page behind is inert), focus on OK');
+  assert.match(app, /\$\('#notice'\)\.addEventListener\('keydown', \(e\) => \{\s*if \(e\.key === 'Tab'\) \{ e\.preventDefault\(\); \$\('#notice-ok'\)\.focus\(\); \}/, 'Tab trapped');
+  assert.match(app, /\$\('#notice'\)\.addEventListener\('close', \(\) => \{\s*const n = st\.notice;\s*st\.notice = null;\s*n\?\.onClose\?\.\(\);/, 'every way of closing runs its onClose');
+  // the pop-up's code writes nothing to a calculator
+  const fn = /function showNotice[^]*?\n\}\r?\nfunction drawNotice[^]*?\n\}/.exec(app)?.[0] || '';
+  assert.ok(fn && !/dfu|write|flash/i.test(fn), 'showNotice/drawNotice never touch the calculator');
+});
+
 // ------------------------------------------------------------------ everything else as before
 test('unchanged: Epsilon 16+ N0110/N0115/N0120, the Portugal prototype and the N0200 are not limited', () => {
   for (const [model, bcd, mem] of [['N0110', 0x0110, MEM.N0110], ['N0115', 0x0115, MEM.N0110], ['N0120', 0x0120, MEM.N0120]]) assert.deepEqual(detect(usbDev(bcd), mem), { model });
@@ -251,7 +278,7 @@ test('unchanged: Epsilon 16+ N0110/N0115/N0120, the Portugal prototype and the N
 // ------------------------------------------------------------------ EN / FR
 test('i18n: every new string in English and French, translated', async () => {
   const en = (await import('../public/i18n/en.js')).default, fr = (await import('../public/i18n/fr.js')).default;
-  const keys = Object.keys(en).filter((k) => /^(warn\.|od\.|sim\.|limited\.|apps\.unavailable$|model\.outdated$|progress\.simulating$|err\.(calc\.n0100|gate\.|sim\.|limited\.))/.test(k));
+  const keys = Object.keys(en).filter((k) => /^(warn\.|refuse\.|od\.|sim\.|limited\.|apps\.unavailable$|model\.outdated$|progress\.simulating$|err\.(calc\.n0100|gate\.|sim\.|limited\.))/.test(k));
   assert.ok(keys.length >= 30, 'found ' + keys.length);
   const same = ['od.opt', 'sim.what.n0100', 'warn.ok'];  // (only a version or a model number)
   for (const k of keys) {
@@ -260,9 +287,9 @@ test('i18n: every new string in English and French, translated', async () => {
   }
   for (const k of Object.keys(fr)) assert.ok(k in en, 'en: ' + k);
   assert.equal(fr['od.hint'], 'Le modèle exact est indiqué au dos de la calculatrice (par ex. N0110 ou N0115).');
-  for (const k of ['warn.n0100.body', 'warn.outdated.body']) assert.ok(!/'/.test(fr[k]), 'French apostrophes as in the rest of fr.js: ' + k);
-  assert.match(en['warn.n0100.body'], /too old: it has no storage for \.nwa apps, and NumWorks itself has stopped updating the N0100/);
-  assert.match(fr['warn.n0100.body'], /trop ancien : il n’a pas de place pour les applis \.nwa, et NumWorks elle-même a cessé de mettre à jour la N0100/);
+  for (const k of ['err.calc.n0100', 'warn.outdated.body', 'refuse.title']) assert.ok(!/'/.test(fr[k]), 'French apostrophes as in the rest of fr.js: ' + k);
+  assert.match(en['err.calc.n0100'], /too old for this installer: it has no storage for \.nwa apps, and NumWorks has stopped updating it/);
+  assert.match(fr['err.calc.n0100'], /trop ancienne pour cet installateur : elle n’a pas de place pour les applis \.nwa, et NumWorks a cessé de la mettre à jour/);
 });
 
 // ------------------------------------------------------------------ TEST MODE (simulate.js)

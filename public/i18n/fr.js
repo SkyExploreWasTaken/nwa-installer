@@ -284,8 +284,8 @@ export default {
   'err.numplay.hash': 'Le fichier {file} de NumPlay ne correspond pas à son empreinte épinglée : refusé',
   // ---- calculatrices à moitié prises en charge (lib/gate.js) et mode test (lib/simulate.js)
   'warn.n0100.title': 'La N0100 ne peut pas être utilisée avec cet outil',
-  'warn.n0100.body': 'Ce modèle est trop ancien : il n’a pas de place pour les applis .nwa, et NumWorks elle-même a cessé de mettre à jour la N0100, donc cet outil ne peut rien faire avec.',
   'warn.ok': 'OK',
+  'refuse.title': 'Cette calculatrice ne peut pas être utilisée avec cet outil',
   'warn.outdated.title': 'Le logiciel de cette calculatrice n’est pas vraiment pris en charge',
   'warn.outdated.body': 'Vous avez ignoré la mise à jour : son firmware est obsolète, et cet outil ne le prend pas vraiment en charge. Rien n’a été écrit sur la calculatrice. Appuyez sur OK pour continuer : ce qui ne peut pas marcher avec ce firmware le dira. Pour la mettre à jour plus tard, reconnectez-la.',
   'limited.why.outdated': 'son firmware obsolète n’indique pas où sont ses applis et ses fichiers',

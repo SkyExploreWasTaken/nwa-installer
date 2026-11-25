@@ -263,18 +263,12 @@ dialog p { color: var(--muted); font-size: 14px; }
    hidden block on screen) */
 [hidden] { display: none !important; }
 
-/* the very big warning: the N0100, or an outdated N0110/N0115 whose update was skipped (gate.js) */
-.big-warning { display: flex; gap: 18px; align-items: flex-start; padding: 26px 28px; border-radius: var(--radius);
-  background: #b00020; color: #fff; border: 4px solid #ffd400; box-shadow: 0 8px 30px rgba(176, 0, 32, .35); }
-.big-warning h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; letter-spacing: -.01em; color: #fff; }
-.big-warning p { margin: 0; font-size: 18px; line-height: 1.45; font-weight: 600; color: #fff; }
-.bw-icon { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 44px; font-weight: 900; background: #ffd400; color: #b00020; }
-
-/* its OK (the skipped-update warning only: the N0100's refusal has nothing to go on to) */
-.bw-ok { margin-top: 16px; font: inherit; font-size: 17px; font-weight: 800; padding: 10px 34px; border-radius: 10px;
-  border: 2px solid #1c1b1a; background: #ffd400; color: #1c1b1a; cursor: pointer; }
-.bw-ok:hover { background: #ffe14d; }
+/* the pop-up: a refused calculator, or the warning after Skip update (app.js showNotice) */
+dialog.notice { max-width: 560px; border: 4px solid #ffd400; background: #b00020; color: #fff; }
+dialog.notice h2 { margin: 0 0 8px; font-size: 24px; line-height: 1.2; color: #fff; }
+dialog.notice p { margin: 0; font-size: 17px; line-height: 1.45; font-weight: 600; color: #fff; }
+.notice-icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 14px;
+  font-size: 38px; font-weight: 900; background: #ffd400; color: #b00020; }
 
 /* an outdated N0110/N0115: which model, which version */
 .od-step { display: grid; gap: 8px; margin-bottom: 14px; }
