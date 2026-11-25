@@ -2,7 +2,7 @@
 // What's on a NumWorks calculator (Epsilon 16 and later, N0110/N0115/N0120): its firmware headers and the
 // external apps in its app area. All of it read over DFU, nothing written.
 import { InstallerError } from './errors.js';
-import { detectModel, usbVersionOf, savedModel } from './model.js';
+import { detectModel, usbVersionOf } from './model.js';
 import { checkOfficial } from './official.js';
 
 // refuses a calculator that doesn't run official software (official.js), with what was found as the code
@@ -30,21 +30,19 @@ export async function readInfo(dfu) {
   const productName = dfu.device?.productName || dfu.productName || '';
   const flashStrings = dfu.layouts.map((l) => l.raw).filter(Boolean);
   if (productName === 'Upsilon Bootloader') unofficial(checkOfficial({ productName }));
-  // the model: from the USB descriptor when the software gives it, else what the person picked for this calculator
-  // before, else null: the page asks (model.js). Never guessed.
-  const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName: dfu.device?.productName || dfu.productName || '',
-    serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
-  const serial = dfu.device?.serialNumber || null;
-  const saved = m.certain ? null : savedModel(serial, m.choices);
-  const info = { model: m.model || saved, modelSource: m.certain ? 'usb' : saved ? 'user' : null, modelChoices: m.choices, serial,
-    ramStart: 0x20000000 };
+  // the model, from the USB descriptor (model.js); a calculator this page can't work with is refused, saying why
+  const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName, serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
+  if (m.refuse === 'calc.n0100') throw new InstallerError('calc.n0100', {}, 'The N0100 is not supported by this installer.');
+  if (m.refuse === 'calc.updateFirst') throw new InstallerError('calc.updateFirst', {}, 'This calculator runs old or unofficial software that does not say which model it is. Update it first on https://my.numworks.com/devices/upgrade, then connect again.');
+  if (m.refuse) throw new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by this installer.');
+  const info = { model: m.model, serial: dfu.device?.serialNumber || null, ramStart: 0x20000000 };
   // the N0120 has its RAM at 0x24000000: its DFU memories say so
   for (const l of dfu.layouts) for (const s of l.segments) if (s.start === 0x24000000) info.ramStart = 0x24000000;
 
   // the bootloader leaves where the running slot's kernel and userland headers are at the start of RAM
   const slot = await dfu.read(info.ramStart, 16);
   if (!is(slot, 0, MAGIC.slot) || !is(slot, 12, MAGIC.slot)) {
-    throw new InstallerError('calc.tooOld', {}, 'This calculator\'s software is too old for external apps (no slot info). Update it to Epsilon 16 or later.');
+    throw new InstallerError('calc.tooOld', {}, 'This calculator\'s software is not supported (no bootloader slot info: Epsilon 15 or older, or a fork without a bootloader). Install official Epsilon from https://my.numworks.com/devices/upgrade, then connect again.');
   }
   info.kernelHeader = u32(slot, 4);
   info.userlandHeader = u32(slot, 8);

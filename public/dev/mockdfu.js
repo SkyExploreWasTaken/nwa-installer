@@ -20,6 +20,8 @@ export async function mockDevice() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   return {
     productName: meta.product + ' (mock)', layouts: meta.layouts,
+    // (the descriptor of the calculator the mock was recorded from: an N0120)
+    device: { productName: meta.product, serialNumber: 'mock', deviceVersionMajor: 1, deviceVersionMinor: 2, deviceVersionSubminor: 0 },
     async open() {}, async close() {},
     async read(a, n, progress) { await sleep(5); const b = find(a, n).slice(); if (progress) progress(1); return b; },
     async write(a, data, progress) {

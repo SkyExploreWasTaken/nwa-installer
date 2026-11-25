@@ -1,25 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Which NumWorks model is plugged in. Only a certain answer is used, never a guess:
-//  - the USB device descriptor's bcdDevice (WebUSB: deviceVersionMajor.Minor.Subminor). Epsilon sets it per model:
-//    0x0110 N0110, 0x0115 N0115, 0x0120 N0120 (numworks/epsilon, shared/ion/src/device/include/n01xx/config/usb.h,
-//    `BCDDevice`, used as bcdDevice in shared/ion/src/device/shared/usb/calculator.h). NumWorks' own Upsilon.js reads
-//    the same three numbers (UpsilonNumworks/Upsilon.js, Numworks.js, getModel()).
-//  - otherwise (Epsilon 15 and older, and Upsilon, answer 0x0100 on every model: numworks/epsilon tag 15.5.0,
-//    ion/src/device/shared/usb/calculator.h) the person reads the model number on the back of the calculator and picks
-//    it; their choice is kept for that calculator (by its serial number). The memories its DFU interface shows only
-//    rule out models it can't be (an N0100 has no external flash, only the N0120 has RAM at 0x24000000), never pick one.
-//  - 0x0120 is the N0120 Portugal prototype when its serial number is that prototype's (as NumWorks' page does).
-//  - 0x0100 with only the N0100's memories (1 MB internal flash, no external flash) is the N0100.
-// (The FCC ID shown in Settings > About, "2ALWP-N0xxx", is not used: on Epsilon 16+ it comes from the kernel, whose
-// source isn't public, and there's no N0115 FCC ID, so it can't be relied on.)
-//   detectModel({ usbVersion, productName, layouts }) -> { model: 'N0120' | null, certain, choices: [models possible] }
+// Which NumWorks model is plugged in, from the USB device descriptor's bcdDevice (WebUSB: deviceVersionMajor.Minor.
+// Subminor), the way NumWorks' own updater page does it (my.numworks.com/devices/upgrade, its script
+// cdn.numworks.com/8221c22f.js): trusted only from a device named "NumWorks Calculator" or "NumWorks Scientific
+// Calculator"; 0x0110 N0110, 0x0115 N0115, 0x0120 N0120 (the one Portugal prototype by its serial number), 0x0200
+// N0200 (numworks/epsilon, shared/ion/src/device/include/n01xx/config/usb.h, `BCDDevice`).
+// Anything else isn't supported, and the page says why instead of guessing:
+//  - 0x0100 (Epsilon 15 and older, Upsilon, Omega) on the N0100's memories (1 MB internal flash, no external flash):
+//    the N0100, not supported.
+//  - 0x0100 otherwise (an N0110 or N0115 on old or unofficial software): update it on NumWorks' site first.
+//  - another number: a model this page doesn't know.
+//   detectModel({ usbVersion, productName, serialNumber, layouts }) -> { model } or { refuse: 'calc.n0100' | ... }
 
-export const MODELS = ['N0100', 'N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'];
+export const MODELS = ['N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930', 'N0200'];
 const BY_BCD = { '1.1.0': 'N0110', '1.1.5': 'N0115', '1.2.0': 'N0120', '2.0.0': 'N0200' };
-// NumWorks' own updater page (my.numworks.com/devices/upgrade, its script cdn.numworks.com/8221c22f.js, function
-// reading the device descriptor's bytes 12-13) uses the same numbers, trusts them only from a device named
-// "NumWorks Calculator" or "NumWorks Scientific Calculator" (0x0200: the N0200), and tells the one Portugal
-// prototype apart by its serial number:
 const PRODUCTS = /^NumWorks (Scientific )?Calculator$/;
 const PORTUGAL_PROTOTYPE_SERIAL = 'EAAbABVROTUxNDM4';
 
@@ -30,46 +23,18 @@ function size(layouts, lo, hi) {
   return n;
 }
 
-// the models these memories don't rule out
-export function possibleModels(layouts) {
-  const ram24 = size(layouts, 0x24000000, 0x2407ffff) > 0;
-  const external = size(layouts, 0x90000000, 0x9fffffff) > 0;
-  const internal = size(layouts, 0x08000000, 0x080fffff);
-  return MODELS.filter((m) => {
-    const n0120 = m.startsWith('N0120');
-    if (ram24 && !n0120) return false;                         // only the N0120 has its RAM there
-    if (!ram24 && n0120 && (external || internal)) return false; // an N0120 always shows it
-    if (external && m === 'N0100') return false;               // the N0100 has no external flash
-    if (!external && internal && m !== 'N0100') return false;  // the others run from external flash
-    return true;
-  });
-}
-
 export function detectModel({ usbVersion = null, productName = '', serialNumber = '', layouts = [] } = {}) {
-  const choices = possibleModels(layouts);
   const bcd = Array.isArray(usbVersion) && usbVersion.length === 3 ? usbVersion.join('.') : null;
-  // (only a NumWorks build's number is trusted: Upsilon's, for one, doesn't follow it)
-  let model = bcd && PRODUCTS.test(productName) ? BY_BCD[bcd] || null : null;
+  const trusted = PRODUCTS.test(productName);
+  let model = trusted && bcd ? BY_BCD[bcd] || null : null;
   if (model === 'N0120' && serialNumber === PORTUGAL_PROTOTYPE_SERIAL) model = 'N0120_PORTUGAL_PROTOTYPE_20210930';
-  // 0x0100 (Epsilon 15 and older, Upsilon, Omega) with only the 1 MB internal flash and no external flash: only the
-  // N0100 is built that way, whatever software it runs. (With external flash it stays a question: Omega's experimental
-  // branch builds for the N0115 too, and answers 0x0100 and "NumWorks Calculator" like on an N0110.)
-  if (!model && bcd === '1.0.0' && choices.length === 1 && choices[0] === 'N0100'
-    && size(layouts, 0x08000000, 0x080fffff) >= 0x100000 && !size(layouts, 0x90000000, 0x9fffffff)) model = 'N0100';
-  return { model, certain: !!model, choices: model ? [model] : choices.length ? choices : [...MODELS] };
+  if (model) return { model };
+  const internal = size(layouts, 0x08000000, 0x080fffff), external = size(layouts, 0x90000000, 0x9fffffff);
+  if (internal >= 0x100000 && !external) return { refuse: 'calc.n0100' };
+  if (!trusted || bcd === '1.0.0' || !bcd) return { refuse: 'calc.updateFirst' };
+  return { refuse: 'calc.unknownModel', bcd };
 }
 
-// the version numbers WebUSB gives for bcdDevice, or null (no device, the mock)
+// the version numbers WebUSB gives for bcdDevice, or null
 export const usbVersionOf = (dev) => (dev && Number.isInteger(dev.deviceVersionMajor)
   ? [dev.deviceVersionMajor, dev.deviceVersionMinor, dev.deviceVersionSubminor] : null);
-
-// the model the person picked for this calculator before (by serial number), when it's still possible
-const KEY = (serial) => 'nwa.model.' + serial;
-export function savedModel(serial, choices, store = globalThis.localStorage) {
-  if (!serial) return null;
-  try { const m = store?.getItem(KEY(serial)); return m && choices.includes(m) ? m : null; } catch { return null; }
-}
-export function saveModel(serial, model, store = globalThis.localStorage) {
-  if (!serial || !MODELS.includes(model)) return;
-  try { store?.setItem(KEY(serial), model); } catch { /* no storage */ }
-}
