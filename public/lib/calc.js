@@ -3,6 +3,12 @@
 // external apps in its app area. All of it read over DFU, nothing written.
 import { InstallerError } from './errors.js';
 import { detectModel, usbVersionOf, savedModel } from './model.js';
+import { checkOfficial } from './official.js';
+
+// refuses a calculator that doesn't run official software (official.js), with what was found as the code
+function unofficial(check) {
+  throw new InstallerError('calc.unofficial.' + check.reason, {}, `This calculator runs unofficial software (${check.reason}), which this installer doesn't support. Reinstall NumWorks' official Epsilon, then connect again.`);
+}
 export const SECTOR = 0x10000;            // apps start on 64 KB sectors
 export const FLASH_END = 0x90800000;
 export const SLOT_B = 0x90400000;      // the second copy of the software (its kernel header 8 bytes in)      // end of the 8 MB external flash
@@ -21,6 +27,9 @@ const cstr = (b, o, max = 64) => {
 export const hex = (n) => '0x' + (n >>> 0).toString(16).padStart(8, '0');
 
 export async function readInfo(dfu) {
+  const productName = dfu.device?.productName || dfu.productName || '';
+  const flashStrings = dfu.layouts.map((l) => l.raw).filter(Boolean);
+  if (productName === 'Upsilon Bootloader') unofficial(checkOfficial({ productName }));
   // the model: from the USB descriptor when the software gives it, else what the person picked for this calculator
   // before, else null: the page asks (model.js). Never guessed.
   const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName: dfu.device?.productName || dfu.productName || '',
@@ -61,6 +70,11 @@ export async function readInfo(dfu) {
   if (!is(u, o, MAGIC.userland)) throw new InstallerError('calc.unknownUserland', {}, 'The userland header is not one this page knows');
   // the trampoline table the apps' EADK calls jump through: right after the header and the userland's ISR words
   info.trampoline = info.userlandHeader + o + 4 + USERLAND_ISR_SIZE;
+  // official software only: the running slot's DFU string, and the fork markers right after the userland header
+  const after = await dfu.read(info.userlandHeader + o + 4, 96);
+  info.firmwareCheck = checkOfficial({ productName, flashStrings, afterUserland: after });
+  info.dfuStrings = flashStrings;
+  if (!info.firmwareCheck.official) unofficial(info.firmwareCheck);
   info.major = parseInt(info.version, 10) || 0;
   // Nwagra: apps may run on past the app area to the end of the flash, when the running software is below the app
   // area (slot A). (On Epsilon 26 too: only NumWorks' installer page gets its size wrong there, NaN.) It writes over

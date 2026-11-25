@@ -207,6 +207,10 @@ export default {
 
   // ---- errors from lib/ (InstallerError codes; each English text matches the error's own message)
   'err.calc.tooOld': "This calculator's software is too old for external apps (no slot info). Update it to Epsilon 16 or later.",
+  'err.calc.unofficial.thirdParty': "This calculator runs unofficial (unsigned) software, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.upsilon': "This calculator runs Upsilon, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.omega': "This calculator runs Omega, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.upsilonBootloader': "This calculator runs Upsilon's bootloader, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
   'err.calc.noKernel': 'The kernel header was not where it should be',
   'err.calc.noUserland': 'The userland header was not where it should be',
   'err.calc.unknownUserland': 'The userland header is not one this page knows',

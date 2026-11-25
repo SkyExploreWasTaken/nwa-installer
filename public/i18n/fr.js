@@ -209,6 +209,10 @@ export default {
 
   // ---- erreurs de lib/ (codes d'InstallerError)
   'err.calc.tooOld': 'Le logiciel de cette calculatrice est trop ancien pour les applis externes (pas d’infos de slot). Mettez-le à jour vers Epsilon 16 ou plus.',
+  'err.calc.unofficial.thirdParty': 'Cette calculatrice utilise un logiciel non officiel (non signé), que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.upsilon': 'Cette calculatrice utilise Upsilon, que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.omega': 'Cette calculatrice utilise Omega, que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.upsilonBootloader': 'Cette calculatrice utilise le bootloader d’Upsilon, que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
   'err.calc.noKernel': 'L’en-tête du noyau n’était pas à sa place',
   'err.calc.noUserland': 'L’en-tête userland n’était pas à sa place',
   'err.calc.unknownUserland': 'Cet en-tête userland n’est pas connu de cette page',

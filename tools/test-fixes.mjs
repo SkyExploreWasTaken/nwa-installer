@@ -6,6 +6,7 @@
 //    start and then every hour; requests only read the cache; a missing channel or model is skipped; falls back to the
 //    kept copies when NumWorks can't be reached; a model not on the list is added when first seen; never overwrites
 //  - model.js: the model only when certain (USB descriptor) or picked by the person; memories only narrow the choices
+//  - official.js: official Epsilon allowed; third-party DFU string, Upsilon/Omega markers, Upsilon bootloader refused
 //  - numplay.js: only the manifest's paths, only bytes matching their pinned sha256
 //  - server.js: security headers on every response; /api/firmware answers from the cache without any network
 //   node tools/test-fixes.mjs
@@ -348,6 +349,63 @@ test('model: readInfo uses the descriptor, else a saved pick, else asks (null)',
   info = await readInfo(dfu);
   assert.deepEqual([info.model, info.modelSource], ['N0120_PORTUGAL_PROTOTYPE_20210930', 'user'], 'the pick, remembered');
   delete globalThis.localStorage;
+});
+
+// ------------------------------------------------------------------ official software only (official.js)
+const { checkOfficial, THIRD_PARTY, AUTHENTICATED } = await import('../public/lib/official.js');
+const SRAM = '@SRAM/0x24000000/01*252Ke';
+// what official Epsilon has right after its userland header: ISR words and trampoline pointers
+const epsilonAfter = Uint8Array.from([0x00, 0x00, 0x04, 0x24, 0x39, 0x01, 0x03, 0x90, ...new Array(88).fill(0).map((_, i) => (i % 4 === 3 ? 0x90 : i))]);
+const withMarker = (m) => { const b = new Uint8Array(96).fill(0x11); b.set(m, 40); return b; };
+
+test('official: Epsilon, signed (with .nwa apps or not), in slot A or B, is allowed', () => {
+  for (const flash of AUTHENTICATED) {
+    const r = checkOfficial({ productName: 'NumWorks Calculator', flashStrings: [flash, SRAM], afterUserland: epsilonAfter });
+    assert.deepEqual(r, { official: true, reason: null, known: true }, flash);
+  }
+});
+
+test('official: the third-party DFU string of the running slot is refused', () => {
+  for (const flash of THIRD_PARTY) {
+    assert.equal(checkOfficial({ productName: 'NumWorks Calculator', flashStrings: [flash, SRAM], afterUserland: epsilonAfter }).reason, 'thirdParty', flash);
+  }
+});
+
+test('official: Upsilon and Omega markers, and Upsilon\'s bootloader, are refused', () => {
+  const base = { productName: 'NumWorks Calculator', flashStrings: [AUTHENTICATED[0], SRAM] };
+  assert.equal(checkOfficial({ ...base, afterUserland: withMarker([0x69, 0x73, 0x70, 0x55]) }).reason, 'upsilon');
+  assert.equal(checkOfficial({ ...base, afterUserland: withMarker([0xde, 0xad, 0xbe, 0xef]) }).reason, 'omega');
+  assert.equal(checkOfficial({ productName: 'Upsilon Bootloader' }).reason, 'upsilonBootloader');
+});
+
+test('official: an undocumented DFU string is allowed (fail-open), and slot B is never read', async () => {
+  const r = checkOfficial({ productName: 'NumWorks Calculator', flashStrings: ['@Flash/0x90000000/128*064Kg'], afterUserland: epsilonAfter });
+  assert.deepEqual(r, { official: true, reason: null, known: false });
+  // readInfo on a calculator running slot A whose slot B is full of apps (Nwagra), markers and all: never read
+  const { readInfo, SLOT_B } = await import('../public/lib/calc.js');
+  const le = (n) => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const str = (s, n) => [...Buffer.from(s.padEnd(n, '\0'))];
+  const SLOT = [0xba, 0xdb, 0xee, 0xef], KERNEL = [0xf0, 0x0d, 0xc0, 0xde], USERLAND = [0xfe, 0xed, 0xc0, 0xde];
+  const mem = new Map([[0x24000000, [...SLOT, ...le(0x90000008), ...le(0x90010000), ...SLOT]],
+    [0x90000008, [...KERNEL, ...str('26.4.0', 8), ...str('cc9262e', 8), ...KERNEL]],
+    [0x90010000, [...USERLAND, ...str('26.4.0', 8), ...le(0x24030000), ...le(0x8000), ...le(0x90180000), ...le(0x903f0000),
+      ...le(0x24010000), ...le(0x24020000), ...USERLAND, ...epsilonAfter]]]);
+  const reads = [];
+  const dfu = { device: usbDev(0x0120), layouts: [{ name: 'Flash', raw: AUTHENTICATED[0], segments: [{ start: 0x90030000, end: 0x907f0000 }] },
+    { name: 'SRAM', raw: SRAM, segments: [{ start: 0x24000000, end: 0x2403f000 }] }],
+    read: async (addr, n) => {
+      reads.push(addr);
+      if (addr >= SLOT_B) return withMarker([0x69, 0x73, 0x70, 0x55]).subarray(0, n);  // slot B: apps (here even a marker)
+      for (const [a, b] of mem) if (addr >= a && addr < a + b.length) return Uint8Array.from({ length: n }, (_, i) => b[addr - a + i] ?? 0);
+      return new Uint8Array(n).fill(0xff);
+    } };
+  const info = await readInfo(dfu);
+  assert.equal(info.firmwareCheck.official, true);
+  assert.equal(info.slot, 'A');
+  assert.ok(!reads.some((a) => a >= SLOT_B && a !== SLOT_B + 8), 'slot B: at most its kernel header, for Nwagra\'s note');
+  // the same calculator with a third-party DFU string: refused with its own code
+  dfu.layouts[0].raw = THIRD_PARTY[0];
+  await assert.rejects(readInfo(dfu), (e) => e.code === 'calc.unofficial.thirdParty');
 });
 
 // ------------------------------------------------------------------ numplay.js: pinned and checked

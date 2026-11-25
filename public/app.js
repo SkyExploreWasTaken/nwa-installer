@@ -69,13 +69,16 @@ async function job(name, fn) {
   render();
   try { return await fn(); } catch (e) {
     log(name + ' failed: ' + (e.message || e));
-    status(() => t('fail.' + name, { msg: errText(e) }), 'warn');
+    // (software the page can't work with says so on its own, without "Connecting failed:")
+    status(() => (/^calc\.(tooOld|unofficial\.)/.test(e.code || '') ? errText(e) : t('fail.' + name, { msg: errText(e) })), 'warn');
     console.error(e);
   } finally { st.busy = false; render(); }
 }
 
 // ------------------------------------------------------------------ connecting
-const MOCK = new URLSearchParams(location.search).has('mock');  // a pretend calculator, for testing (dev/mockdfu.js)
+const MOCK = new URLSearchParams(location.search).has('mock');
+// ?debug: the page's state on window.nwaDebug, for reading the calculator from the console (read-only checks)
+if (new URLSearchParams(location.search).has('debug')) window.nwaDebug = st;  // a pretend calculator, for testing (dev/mockdfu.js)
 // iPhone and iPad: no WebUSB in any of their browsers (they're all WebKit underneath). iPadOS says it's a Mac:
 // a "Mac" with a touch screen is an iPad.
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -108,8 +111,11 @@ async function connect(dev) {
     // let go of the calculator, so a new try (or another program) can have it
     await st.dfu.close().catch(() => {});
     st.dev = st.dfu = st.info = st.scan = null;
+    // (software this page can't work with: its own message, without "unplug and connect again", which won't help)
+    if (/^calc\.(tooOld|unofficial\.)/.test(e.code || '')) throw e;
     throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
   }
+  log(`DFU memories: ${(st.info.dfuStrings || []).join(' | ')}; software: ${st.info.firmwareCheck?.official ? 'official' : '?'}${st.info.firmwareCheck && !st.info.firmwareCheck.known ? ' (DFU string not one of the documented forms: allowed)' : ''}`);
   log(`Connected: ${st.info.model ? st.info.model + (st.info.modelSource === 'usb' ? ' (from its USB descriptor)' : ' (picked before for this calculator)') : 'model not given by its software, asking'}, Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
   await rescan();
   st.modelAsk = !st.info.model;

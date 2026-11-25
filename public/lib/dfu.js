@@ -22,7 +22,7 @@ export function parseMemoryLayout(name) {
       erasable: !!(flags & 2), writable: !!(flags & 4) });
     addr += count * size;
   }
-  return { name: m[1].trim(), segments: segs };
+  return { name: m[1].trim(), segments: segs, raw: name.trim() };
 }
 
 export class Dfu {
