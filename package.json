@@ -8,7 +8,7 @@
     "setup": "node tools/setup.js",
     "start": "node server.js",
     "probe": "node tools/probe.mjs",
-    "test": "node tools/test-numworks.mjs && node tools/check-i18n.mjs",
+    "test": "node tools/test-numworks.mjs && node tools/test-fixes.mjs && node tools/check-i18n.mjs",
     "check-i18n": "node tools/check-i18n.mjs"
   },
   "devDependencies": {

@@ -247,3 +247,15 @@ dialog p { color: var(--muted); font-size: 14px; }
 .chips .s { color: var(--muted); }
 .chips button { border: 0; background: none; padding: 0 6px; font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; }
 .chips button:hover { color: var(--text); }
+
+/* the firmware version to install */
+.fw-version { display: grid; gap: 4px; margin-top: 12px; min-width: 0; }
+.fw-version .k { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fw-version select { font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); min-height: 44px; width: 100%; min-width: 0; text-overflow: ellipsis; }
+/* touch: tap targets of at least 44px, and the firmware cards stacked on narrow screens */
+.lang { min-height: 44px; min-width: 44px; }
+.chips button { min-width: 44px; min-height: 44px; }
+@media (max-width: 480px) {
+  .fw-cards { grid-template-columns: 1fr; }
+  .fw-cards .arrow { transform: rotate(90deg); }
+}

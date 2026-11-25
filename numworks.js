@@ -6,6 +6,7 @@
 //   /api/firmware/N0120.dfu    its firmware (?version= to ask for the one the .json named)
 'use strict';
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path');
+const { FirmwareCache } = require('./firmware-cache.js');
 
 // (tools/test-numworks.mjs points these at a pretend my.numworks.com and account)
 const NW = process.env.NUMWORKS_URL || 'https://my.numworks.com';
@@ -121,27 +122,42 @@ async function latestVersion() {
   return m[1];
 }
 
-async function firmware(res, model, ext, version, send) {
-  if (!MODELS.has(model)) return send(res, 400, fail('Unknown model ' + model, 'nw.unknownModel', { model }));
-  if (version && !/^[0-9A-Za-z._-]{1,40}$/.test(version)) return send(res, 400, fail('Bad version', 'nw.badVersion'));
-  const v = version || await latestVersion();
-  const r = await get(`/firmwares/${model}/${encodeURIComponent(v)}.${ext}`, ext === 'json' ? 'application/json' : 'application/octet-stream');
-  if (r.status !== 200) return send(res, r.status === 404 ? 404 : 502, fail(`my.numworks.com: HTTP ${r.status} for ${model} ${v}.${ext}`, 'nw.firmwareHttp', { status: r.status, file: `${model} ${v}.${ext}` }));
-  if (ext === 'json') {
-    let info;
-    try { info = JSON.parse(r.body.toString('utf8')); } catch { return send(res, 502, fail('my.numworks.com did not send JSON for ' + model, 'nw.notJson', { model })); }
-    return send(res, 200, { name: v, ...info });
-  }
-  res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': r.body.length, 'Cache-Control': 'no-store',
-    'X-Firmware-Name': v });
-  res.end(r.body);
+// what NumWorks offers now for a model: { name: the version name its updater uses, info: its .json }
+async function fetchInfo(model) {
+  const v = await latestVersion();
+  const r = await get(`/firmwares/${model}/${encodeURIComponent(v)}.json`, 'application/json');
+  if (r.status !== 200) throw new HttpError(r.status === 404 ? 404 : 502, `my.numworks.com: HTTP ${r.status} for ${model} ${v}.json`, 'nw.firmwareHttp', { status: r.status, file: `${model} ${v}.json` });
+  try { return { name: v, info: JSON.parse(r.body.toString('utf8')) }; } catch { throw new HttpError(502, 'my.numworks.com did not send JSON for ' + model, 'nw.notJson', { model }); }
 }
 
-// answers /api/firmware/...; resolves false for other paths
+// that firmware's .dfu
+async function fetchFirmware(model, name) {
+  const r = await get(`/firmwares/${model}/${encodeURIComponent(name)}.dfu`, 'application/octet-stream');
+  if (r.status !== 200) throw new HttpError(r.status === 404 ? 404 : 502, `my.numworks.com: HTTP ${r.status} for ${model} ${name}.dfu`, 'nw.firmwareHttp', { status: r.status, file: `${model} ${name}.dfu` });
+  return r.body;
+}
+
+// the disk cache the page's requests read from (firmware-cache.js); my.numworks.com is only asked by its hourly check
+const cache = new FirmwareCache({ dir: process.env.NWA_FW_CACHE || path.join(__dirname, 'cache', 'firmware'), fetchInfo, fetchFirmware,
+  log: (m) => console.log(m) });
+
+// answers /api/firmware/...; resolves false for other paths. Never reaches my.numworks.com itself.
 async function handle(req, res, url, send) {
   const m = /^\/api\/firmware\/(N\d{4})\.(json|dfu)$/.exec(url.pathname);
   if (!m) return false;
-  await firmware(res, m[1], m[2], url.searchParams.get('version'), send);
+  const [, model, ext] = m, version = url.searchParams.get('version');
+  if (!MODELS.has(model)) { send(res, 400, fail('Unknown model ' + model, 'nw.unknownModel', { model })); return true; }
+  if (version && !/^[0-9A-Za-z._-]{1,40}$/.test(version)) { send(res, 400, fail('Bad version', 'nw.badVersion')); return true; }
+  try {
+    if (ext === 'json') { send(res, 200, cache.info(model)); return true; }
+    const f = cache.firmware(model, version);
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': f.body.length, 'Cache-Control': 'no-store',
+      'X-Firmware-Name': f.version });
+    res.end(f.body);
+  } catch (e) {
+    if (!e.i18n) throw e;
+    send(res, e.status || 502, { error: e.message, ...e.i18n });
+  }
   return true;
 }
 
@@ -150,4 +166,4 @@ function status() {
   try { return { account: !!account() }; } catch (e) { return { account: false, error: e.message, ...e.i18n }; }
 }
 
-module.exports = { handle, status };
+module.exports = { handle, status, fetchInfo, fetchFirmware, cache, start: () => cache.start() };

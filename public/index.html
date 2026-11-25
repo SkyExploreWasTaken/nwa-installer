@@ -102,7 +102,7 @@
         <div id="np-carts" class="np-own" hidden>
           <div class="np-own-head">
             <span><b>NumPico</b> <span class="muted" data-i18n="np.carts.what">Your PICO-8 carts (.p8 or .p8.png)</span></span>
-            <label class="link"><span data-i18n="np.carts.add">Add carts…</span><input id="np-cart-file" type="file" accept=".p8,.png" multiple hidden></label>
+            <label class="link"><span data-i18n="np.carts.add">Add carts…</span><input id="np-cart-file" type="file" accept=".p8,.png,application/octet-stream,text/plain,image/png" multiple hidden></label>
           </div>
           <ul id="np-cart-list" class="chips"></ul>
         </div>
@@ -161,6 +161,10 @@
           <div class="arrow" aria-hidden="true">&rarr;</div>
           <div><span class="k" data-i18n="fw.new">From NumWorks</span><span id="fw-new" class="v"></span></div>
         </div>
+        <label class="fw-version"><span class="k" data-i18n="fw.version">Version to install</span>
+          <select id="fw-version"></select></label>
+        <p id="fw-recommend" class="note" hidden></p>
+        <p id="fw-cache" class="muted" hidden></p>
         <p id="fw-note" class="note"></p>
         <label class="opt"><input type="checkbox" id="fw-keep" checked><span class="switch" aria-hidden="true"></span>
           <span><b data-i18n="fw.keep">Keep my Python scripts</b><span class="muted" data-i18n="fw.keep.sub">Saves them (and downloads a backup of all files) before, puts them back after.</span></span></label>

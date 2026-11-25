@@ -1,0 +1,984 @@
+{
+ "repo": "Mason363/NumPlay",
+ "kitCommit": "d742c45ec4383e6a84df60aa3e401fe835ca9e31",
+ "mainCommit": "da1ea62d78d2988e6517ac4288fdda3939d1091d",
+ "sources": {
+  "kit/": "https://raw.githubusercontent.com/Mason363/NumPlay/d742c45ec4383e6a84df60aa3e401fe835ca9e31/",
+  "apps.js": "https://raw.githubusercontent.com/Mason363/NumPlay/da1ea62d78d2988e6517ac4288fdda3939d1091d/customize/apps.js",
+  "pico.js": "https://raw.githubusercontent.com/Mason363/NumPlay/da1ea62d78d2988e6517ac4288fdda3939d1091d/customize/pico.js"
+ },
+ "files": {
+  "apps.js": {
+   "sha256": "556c8595d662a1c8ae66f06af1ceff540b47d0c8eec7ee00c9208abc16ab6ef1",
+   "size": 20584
+  },
+  "kit/apps/RetroGo-app.o.gz": {
+   "sha256": "c14cdb98af61a4e95ea3368bf787eaf1481b0ac9a0cf2a528bce730f4f08171e",
+   "size": 247267
+  },
+  "kit/apps/celeste.nwa.gz": {
+   "sha256": "e233874ec3912ce869b3551b9883a5a95286d3868e649230cb5efd04964c851d",
+   "size": 1757863
+  },
+  "kit/apps/championisland.nwa.gz": {
+   "sha256": "76b4f9c25ed57ec14ccae29c8f4cd137aaafbbaa46a7e18dfb06b4f86f059545",
+   "size": 1589239
+  },
+  "kit/apps/fnafworld.nwa.gz": {
+   "sha256": "52af2b07374c06a4a8ba4d3b70ff0bb286ff14b52aceda8528a4c3c1fba2bf7c",
+   "size": 3616044
+  },
+  "kit/apps/hollowknight.nwa.gz": {
+   "sha256": "24404a0a2457ad77fb6557194c93b573c6831cc160bf298671690f69b0580ce1",
+   "size": 1582500
+  },
+  "kit/arena.o.gz": {
+   "sha256": "1664ec6fb56d6a73d4773b45f0f8dd32526704a435f95a93dfabbd8a3b6c3954",
+   "size": 2406
+  },
+  "kit/base.o.gz": {
+   "sha256": "0c3c2037b3d989262c652b2214b13308513bb78dac9d732d50e75a4b775bcd14",
+   "size": 60425
+  },
+  "kit/fr/arena.o.gz": {
+   "sha256": "3116a271a27549f701d4b7827f586bc2fd5f6601b4401c2ca95ebfbd4ecdebbb",
+   "size": 2410
+  },
+  "kit/fr/base.o.gz": {
+   "sha256": "fc63c8d4ff87865be5390e963ef30d915c0e2267555ee966e8abc56a0356ff90",
+   "size": 64725
+  },
+  "kit/fr/games/balatro.o.gz": {
+   "sha256": "db4e30fb5b2f9daef34260fa9ade9a9449f12fbda8c77891b0e7509e4db4847e",
+   "size": 236102
+  },
+  "kit/fr/games/blockblast.o.gz": {
+   "sha256": "41581c99a1a9e066f048bf9aaa5892a6490f68e260a8cd06060a17936cd49362",
+   "size": 7742
+  },
+  "kit/fr/games/breakout.o.gz": {
+   "sha256": "f843ae448ea2a845f5deba5911c7ee6b3b68435aa1de63d39367fb6373ec7a72",
+   "size": 13716
+  },
+  "kit/fr/games/buckshot.o.gz": {
+   "sha256": "ce6a0e9f5deea5d87bff79fc1d03d8e45baa87efb548008e65dc508bf72f18b1",
+   "size": 247813
+  },
+  "kit/fr/games/chess.o.gz": {
+   "sha256": "2267afb039667126a14d6736e238721844d0ba22f9489cd6c69b973c3b80fcf4",
+   "size": 22699
+  },
+  "kit/fr/games/connectfour.o.gz": {
+   "sha256": "f30942cd410de4cf080b76d4366555ceee1ed9374541d0d4699e3d38580e9edc",
+   "size": 16824
+  },
+  "kit/fr/games/coreball.o.gz": {
+   "sha256": "1214b1f5a8ffe1882852318bce37caf4282cb274569ad93a487a3848026b2aad",
+   "size": 6486
+  },
+  "kit/fr/games/crossyroad.o.gz": {
+   "sha256": "6528a4562f3214bb377ec59bba18d3d30e150bc3f31f41178181cfd11c329de0",
+   "size": 24207
+  },
+  "kit/fr/games/dinorun.o.gz": {
+   "sha256": "1973372fa8456d01899ccc25aaa296c6a24dfb7f51816a4706d7212d0464114b",
+   "size": 16237
+  },
+  "kit/fr/games/flappybird.o.gz": {
+   "sha256": "3e63e408d81f0a51eb822545b1eb0491e1e598a4a5283135e96a0ce1087e6cfe",
+   "size": 18465
+  },
+  "kit/fr/games/g2048.o.gz": {
+   "sha256": "5c21cc8545585a67c513c55cb9effd031774c018a6a84b5855164d4b6dd38ffb",
+   "size": 16419
+  },
+  "kit/fr/games/invaders.o.gz": {
+   "sha256": "0cbce2c5f0f10722f739b42e4b69551fe4897148da7df99014c653a94960a3f7",
+   "size": 6739
+  },
+  "kit/fr/games/minesweeper.o.gz": {
+   "sha256": "ccbc5caaee6a37f9f8bf29f64e1c172f80bfdd293aac974a3d12c44dfba2764c",
+   "size": 17374
+  },
+  "kit/fr/games/numblocks.o.gz": {
+   "sha256": "6a6a0c42d2cf37fb2fefc7b71116e745fb39ff6acc343773d272d284593ab260",
+   "size": 278610
+  },
+  "kit/fr/games/numdash.o.gz": {
+   "sha256": "fa293e8fbf0176af79d72ba6bf1f563ebc78f2179c45904d9b08119f377d8eb3",
+   "size": 316651
+  },
+  "kit/fr/games/numdrive.o.gz": {
+   "sha256": "810d3a87e1d05cc2befa582de66a4419363ac44dd1a713f19eb5250e3be10676",
+   "size": 186005
+  },
+  "kit/fr/games/numvisuals.o.gz": {
+   "sha256": "2619416ff16e6530190fcd5eba75b8b4f8157f1b70e6361bf114fe23f78db1b5",
+   "size": 57236
+  },
+  "kit/fr/games/pacman.o.gz": {
+   "sha256": "6a3b326f0722fda413ecbc8af84d7a455afaa8c93447f836fbd650422b20c8cf",
+   "size": 18028
+  },
+  "kit/fr/games/portal.o.gz": {
+   "sha256": "7efbbe7ae45c124e1f5b6641137907128696d087192b55c83de4d4ee6b9a897d",
+   "size": 32901
+  },
+  "kit/fr/games/retrogo.o.gz": {
+   "sha256": "119c490efc5085a851a3a28bd23be1f27891e29efd24c24dee8947c0db95a266",
+   "size": 103372
+  },
+  "kit/fr/games/snake.o.gz": {
+   "sha256": "8458dbe5db4f2612c39c6ffec7e2f3c14cbb858bdf63019daae0c81d0ee58eea",
+   "size": 19860
+  },
+  "kit/fr/games/sokoban.o.gz": {
+   "sha256": "8032f9a2bef492f2cf015e9b4cfed5bf9bfaddaaa445d0b18f105457a6269479",
+   "size": 6858
+  },
+  "kit/fr/games/solitaire.o.gz": {
+   "sha256": "cbe2c6dd77d59cb255bd441bcaa582981c4382525277b83fdfa6f021a7353709",
+   "size": 19298
+  },
+  "kit/fr/games/sudoku.o.gz": {
+   "sha256": "84471f0d0766f122d4d184402052bae4e656ce1e88f1ec84b9f4a898f84dffc8",
+   "size": 6407
+  },
+  "kit/fr/games/suika.o.gz": {
+   "sha256": "5b0b306b5e8dbde087b4c2cc091488bad70728509395059667581c82ad37ff1a",
+   "size": 13204
+  },
+  "kit/fr/games/tetris.o.gz": {
+   "sha256": "275c55b89bca471cf460d70cfcb6ed4237df0efd7fe4046daa62aaa00e7d8942",
+   "size": 35405
+  },
+  "kit/fr/games/towerblock.o.gz": {
+   "sha256": "b95ece4cfb8de84392789475f032dd18cade51879ec20538d80cae667e641e83",
+   "size": 6500
+  },
+  "kit/fr/games/twoplayer.o.gz": {
+   "sha256": "883df7773db1fb099d76ca2caf68a2d4850783135890ab5e1177a96717a03206",
+   "size": 15302
+  },
+  "kit/fr/games/uttt.o.gz": {
+   "sha256": "c1d0b6047b75a5faca004090961cd927717cfcbec40c3cd19aa5b3194aec6192",
+   "size": 6637
+  },
+  "kit/fr/kit.json": {
+   "sha256": "8f204df02548ea80a696f3400df810b2c86391b4351ebd6119d204a5821abb9b",
+   "size": 69537
+  },
+  "kit/games/amongus.o.gz": {
+   "sha256": "1da697b7da16a041ff49f26a09cbf9e38f302c031324471701adefa0e9dacd70",
+   "size": 910028
+  },
+  "kit/games/angrybirds.o.gz": {
+   "sha256": "e7a62723e2903d1f9811d6892d24216b5ae7b357378adc306f14a7aea84bf8e4",
+   "size": 849195
+  },
+  "kit/games/badtime.o.gz": {
+   "sha256": "aff6b21a00ac8d0046b253faf5170742e4720dee4137b5e6abc0d65548a011e7",
+   "size": 60393
+  },
+  "kit/games/balatro.o.gz": {
+   "sha256": "1ebc0ac1c55ef999229b75ed6a8601e05ca60fb22e44f53c02e118da64745a35",
+   "size": 236145
+  },
+  "kit/games/blockblast.o.gz": {
+   "sha256": "b00cc367ad167d19ba86b3fbde567e66ceb3c6c86a59feff63173d5bfd8d34d3",
+   "size": 7708
+  },
+  "kit/games/breakout.o.gz": {
+   "sha256": "fd4a35a089d889c4c25fd4e5c527bca9614f69dda179b97cf74eb7c7ac0b4ba7",
+   "size": 13948
+  },
+  "kit/games/buckshot.o.gz": {
+   "sha256": "2d36534b04be8e927cb1c52b71577c6fcb831ca9e61fb88ce657b97a87d0194d",
+   "size": 249994
+  },
+  "kit/games/catninja.o.gz": {
+   "sha256": "dac8aa609ff69b157f261390aa31746f2ddfcd0710624e439045a0e215afb808",
+   "size": 94824
+  },
+  "kit/games/celeste.o.gz": {
+   "sha256": "58de476cf6b7589b2fc2465f949fe755f4cce61036be0a2e901053837b1fe036",
+   "size": 1712462
+  },
+  "kit/games/championisland.o.gz": {
+   "sha256": "d6800cc99ac555140126ce9a07438de9af271ddb1f3f56db6af1ffd3ca5e38f9",
+   "size": 1575215
+  },
+  "kit/games/chess.o.gz": {
+   "sha256": "f25ed193e48d2856c4d4f2046d49dc8eb2b26371e37c981583114c7385eaedfd",
+   "size": 24194
+  },
+  "kit/games/circloo.o.gz": {
+   "sha256": "62954ae4eeeadbaea4952cb3a5cc162213fae812912db6f1666532c8a834da91",
+   "size": 65167
+  },
+  "kit/games/clashroyale.o.gz": {
+   "sha256": "0d0e2c4ba3cd3963b2e7e113c5664fb442d9914dc674ca51453e7ca824d63e74",
+   "size": 1027299
+  },
+  "kit/games/connectfour.o.gz": {
+   "sha256": "0485baaa4323beb00d8adde8376b2d7bc8d0298464e7c5f8dd5c91feb6afb0a3",
+   "size": 17282
+  },
+  "kit/games/cookieclicker.o.gz": {
+   "sha256": "5c747bcb01811f78dc622d098a52a41e4156fefc803fd483da44e15653facf14",
+   "size": 725076
+  },
+  "kit/games/coreball.o.gz": {
+   "sha256": "814bb1142e7d688bcbd0a3616aed9a2d757ea7f1a70482fd47a2a1eae7f88475",
+   "size": 6452
+  },
+  "kit/games/crossyroad.o.gz": {
+   "sha256": "f1f2d898e95837c38d2c1d29749bd1e7015437616dd3986d74a186979124f82b",
+   "size": 27237
+  },
+  "kit/games/deltarune.o.gz": {
+   "sha256": "3149b585c804ab5200fef110bb18273b777bda2a17383a61069e659e3555e969",
+   "size": 775754
+  },
+  "kit/games/dinorun.o.gz": {
+   "sha256": "f29839e7811b233b2f00ddfd75c6870505e164777ddd4654cb33fd9720c3121e",
+   "size": 16376
+  },
+  "kit/games/donkeykong.o.gz": {
+   "sha256": "f50bfe1ffbc1cdaac6036856c5e434cd77ac1045a00b89b16c66d6c7e50209b2",
+   "size": 43488
+  },
+  "kit/games/doodlejump.o.gz": {
+   "sha256": "a7dae2ea4ead458cddc9384b30180ecfd2a185f889f431bb7a3897bea73407bb",
+   "size": 75524
+  },
+  "kit/games/doom.o.gz": {
+   "sha256": "d01b8e8386e89387050687d6833271240e50cd6f2a920d839ad070a30a0a6add",
+   "size": 1449002
+  },
+  "kit/games/dune.o.gz": {
+   "sha256": "eec9d177b50a2101f2092477d50858afdd7dd25d3f1f354a9602c2d7daf1b65b",
+   "size": 212923
+  },
+  "kit/games/famidash.o.gz": {
+   "sha256": "b49a7c76770cd67994c4202cd8d533ad3ff9afcb52b892b26fc3ecb58e4bb3c8",
+   "size": 1212365
+  },
+  "kit/games/finalearth2.o.gz": {
+   "sha256": "304d07ce5ee040fa459929a03213abd2628aeea63c0c16badb8bbf8ad72c80da",
+   "size": 436646
+  },
+  "kit/games/flappybird.o.gz": {
+   "sha256": "3a6ea91ae2794401a37cccb4bfab1f0692f8861e7c2a6c9dd30701d3420df49a",
+   "size": 18546
+  },
+  "kit/games/flappydunk.o.gz": {
+   "sha256": "b40a203ce7025af60506b01a17688992759e7baacea7fa34d5c771e3727f61a3",
+   "size": 126761
+  },
+  "kit/games/fnaf.o.gz": {
+   "sha256": "122a39849ec4da085715d235d4a8adafb5253d80c51ebf9ee54b0394c8a839f0",
+   "size": 976501
+  },
+  "kit/games/fnaf2.o.gz": {
+   "sha256": "6b240ff6f3c11d12167054c2eb066dc2cdd4ae4f299b97114e15091e4093e2f0",
+   "size": 1662057
+  },
+  "kit/games/fnaf3.o.gz": {
+   "sha256": "12680acddfc9608132d3b8064ce85a4ba4585e9baec80df77d60b8aa7ef15a28",
+   "size": 845023
+  },
+  "kit/games/fnaf4.o.gz": {
+   "sha256": "d30379cb3ed3bbcc3e9fb1d4317470f680587a468b54f0c974b8538b68ef680e",
+   "size": 1067824
+  },
+  "kit/games/fnafworld.o.gz": {
+   "sha256": "2b7305ab39231be11af421501684ef4c8608d8cf1bdb42af67343c2db33c3ca7",
+   "size": 3613756
+  },
+  "kit/games/fnf.o.gz": {
+   "sha256": "5991f42a16d71e8bcd6ddb1aee2a88d62467169e49355eddff90e099b75ce91c",
+   "size": 1795890
+  },
+  "kit/games/fourplayer.o.gz": {
+   "sha256": "ba8659161713e45fd6b95a310f56d703e28a6e3573470c3b860fe751b22004fa",
+   "size": 60549
+  },
+  "kit/games/g2048.o.gz": {
+   "sha256": "fb23b01d73252bf6f4ea4061d332aaa8657af72ee4e3eacf5c3b242df8f171b3",
+   "size": 17155
+  },
+  "kit/games/hillclimb.o.gz": {
+   "sha256": "ccf31b8d4e3e7fa807a96e0606998de78f15e39a7cb1315ee601cbe2d2000a82",
+   "size": 740667
+  },
+  "kit/games/hkfungal.o.gz": {
+   "sha256": "3528a6efd8b1a68d5cd60672f6b6474834d5a99a38f52e1d7d4bc43edf7b9c2a",
+   "size": 1168295
+  },
+  "kit/games/hollowknight.o.gz": {
+   "sha256": "ff3084c40ba0be5318d2ec04cbd78869f17b147f3a573723f78b17be00d6a24c",
+   "size": 1568107
+  },
+  "kit/games/imposter.o.gz": {
+   "sha256": "d7343def9c3a225d435a77f724cb53e4dc1e74ff28bcb57b1004e0f98dc03783",
+   "size": 36642
+  },
+  "kit/games/invaders.o.gz": {
+   "sha256": "66f794012874f0000cb2ae5e877ff049c3a4251af6ee85f00845dde68e301923",
+   "size": 6700
+  },
+  "kit/games/isaac.o.gz": {
+   "sha256": "3234a9696fcc472ac217b215cfdcfa2cd9ed84a028902249b702e36367edbfdf",
+   "size": 677532
+  },
+  "kit/games/jetpackjoyride.o.gz": {
+   "sha256": "b52bc421e26ad6af5033f8055cc738e36edff24de77f394b084999ec43c475d2",
+   "size": 433887
+  },
+  "kit/games/kingdomrush.o.gz": {
+   "sha256": "055e4fc1b1299d8aeaafe37c9e3131a77ae3b5536b335abf83649b0f1bd4a23b",
+   "size": 968245
+  },
+  "kit/games/leveldevil.o.gz": {
+   "sha256": "cf8c808c3cbf3156a52f6857a8fef6b3aac6a9f9559e86c5b7b8328a9a0bd158",
+   "size": 37685
+  },
+  "kit/games/mahjong.o.gz": {
+   "sha256": "b69e194d74ba0f44fb75988b6fedf35cabd05523e6f383b3de1b18c92e2fdd89",
+   "size": 29403
+  },
+  "kit/games/meowdoku.o.gz": {
+   "sha256": "8169cc61579a35c4bc631ccc16aaabb8af9fe7bbdb5ad40485d2c329a1143918",
+   "size": 23287
+  },
+  "kit/games/minesweeper.o.gz": {
+   "sha256": "1eb5ab3f10210299f331ae67048d8785aa06af1696c3f70c2c49f9d832165631",
+   "size": 18487
+  },
+  "kit/games/monkeymart.o.gz": {
+   "sha256": "9d47721fdabc6516b465eadf60b7b2b00fffc30a703ab286f6da575395a10c1d",
+   "size": 333902
+  },
+  "kit/games/motox3m.o.gz": {
+   "sha256": "31da98d9855cb93a4748d5be20362f12a12c801ee928ff8d8263ddaa56cf284e",
+   "size": 756421
+  },
+  "kit/games/mrbullet.o.gz": {
+   "sha256": "bda08d0899a7d6e4e6ca3d5c3ff8a8f902e6a0ef4cb414f4f686964d6c3c25e5",
+   "size": 361566
+  },
+  "kit/games/numblocks.o.gz": {
+   "sha256": "663e3d844a39fbd68f3fb7cbb57ffc583944bb17c45b5934c6e151778caa72b0",
+   "size": 282011
+  },
+  "kit/games/numdash.o.gz": {
+   "sha256": "554004a131e13fef236789f18cc0869d6928c3e3d8b35e4bee4a1c56213c6181",
+   "size": 317663
+  },
+  "kit/games/numdrive.o.gz": {
+   "sha256": "0dee4b442a6457ac4a901a2673aa9ce72905a1257a0cf0e95696b668a2ec9db1",
+   "size": 186992
+  },
+  "kit/games/numpico.o.gz": {
+   "sha256": "e6b05d7292638bf11eb56741c46bb399508f0aea4ff982c611d6494511c78b07",
+   "size": 129126
+  },
+  "kit/games/numpowder.o.gz": {
+   "sha256": "047e6058b48b04392520b5bf4f4f58635f511717040f38cd32e5f0bdaaf56b1b",
+   "size": 268027
+  },
+  "kit/games/numvisuals.o.gz": {
+   "sha256": "5cb33418ddab9bb2cbe066ed3a97003ebe0ed5d5b345e67e357c685b2c0ec6fd",
+   "size": 59234
+  },
+  "kit/games/pacman.o.gz": {
+   "sha256": "75c9685f5db8713d559c637f66f70fd5fea88121e724dc784ca99c28ae72f556",
+   "size": 19003
+  },
+  "kit/games/paperclips.o.gz": {
+   "sha256": "4e29fc36613bfa3f72a37834d4f2b74ab1db9d3eab400f585c638ad4e2eb4903",
+   "size": 80180
+  },
+  "kit/games/polytrack.o.gz": {
+   "sha256": "6b24cda7505aaa31e4c55116f7f046a59619bfb4b3e1cb144cd7fe46e3769542",
+   "size": 585242
+  },
+  "kit/games/portal.o.gz": {
+   "sha256": "94d4a6a0dd4e36221445d865862e7f410379df24c012b710cd6d1daf2ba31109",
+   "size": 33668
+  },
+  "kit/games/pvz.o.gz": {
+   "sha256": "6d17a808325ac104587dbb8af4b471a06cdbea59db05d66a436bd9fbcd068248",
+   "size": 1325757
+  },
+  "kit/games/retrogo.o.gz": {
+   "sha256": "58abb5ac432663be808582a56e16ac4c69bb78609b5f9cbb6e761546c332b36a",
+   "size": 104675
+  },
+  "kit/games/rider.o.gz": {
+   "sha256": "cc0174433224976f7e324041a1ad2a8c4d20cac2bb1025ce531320dc9d154cb4",
+   "size": 212527
+  },
+  "kit/games/snake.o.gz": {
+   "sha256": "71cee8cefe38cfeae17b2ae3182af97d81b7045b954c9dd5e03e5ae7bcdda2e3",
+   "size": 20416
+  },
+  "kit/games/snowrider.o.gz": {
+   "sha256": "09e45dd2f9b5631db21b6948f1a6e3d2c133ec2ed9e6c73846625f7d8d7a1869",
+   "size": 281653
+  },
+  "kit/games/sokoban.o.gz": {
+   "sha256": "f13de19ec917ef59759fe11f4ce1e54c2664745c3574bb3b1136229893ea9c2b",
+   "size": 6822
+  },
+  "kit/games/solitaire.o.gz": {
+   "sha256": "2c759e84604cb19e213708b8c1fca4977e59e59e502b4f2f4321470d9d4723d8",
+   "size": 19914
+  },
+  "kit/games/sonic.o.gz": {
+   "sha256": "bd111a3e039d1519f82309bb6b76d824d44aeb9762ab7df0608f81f7faa5777d",
+   "size": 342292
+  },
+  "kit/games/stickmanhook.o.gz": {
+   "sha256": "342ba481940ada9e7e7b6a813ed906b5e673742e4f55ec076026f57eb8d361e6",
+   "size": 140197
+  },
+  "kit/games/subway.o.gz": {
+   "sha256": "3782bebd8bfcffc0876d0c721a4b120931447b6ee5326c5c37a1076db11e3aae",
+   "size": 365712
+  },
+  "kit/games/sudoku.o.gz": {
+   "sha256": "3c8b211759955d741c8afba9d2ebc691d7257f3ebadd217669c47e8b857e4966",
+   "size": 6349
+  },
+  "kit/games/suika.o.gz": {
+   "sha256": "a4e7398a5700183c233ccd78bbd0b832f04036978f94fe8fd70d32c1843aa92d",
+   "size": 13159
+  },
+  "kit/games/templerun.o.gz": {
+   "sha256": "c799b04f49ac8b45cc6e4ce386b5342e20abafbe1cec567d16442b6e115879f0",
+   "size": 914586
+  },
+  "kit/games/tetris.o.gz": {
+   "sha256": "7864401c1bf4536ab3375cbab549b3d0a0f6206127464bc512e67af1e834ea0b",
+   "size": 36549
+  },
+  "kit/games/tombofthemask.o.gz": {
+   "sha256": "c06c6f21f953a600b698e24c8d392ec5e4476ad8e0bc2fe5a5b9ccd9d46ac5bf",
+   "size": 119256
+  },
+  "kit/games/towerblock.o.gz": {
+   "sha256": "5eefd5b12741db60b97ee233657c068e2c9ffdc671ed6d465a42c5413ecd4d50",
+   "size": 6482
+  },
+  "kit/games/twoplayer.o.gz": {
+   "sha256": "0c1acbd57752188441120c4ae552eff12d2c5704ffe0ce86d916e474cfce24c8",
+   "size": 15207
+  },
+  "kit/games/undertale.o.gz": {
+   "sha256": "ff5bba1bc6500c53bbc02d3a7c6b6e4d1775a7f01fa6d2181826217ac08cb7e3",
+   "size": 1071811
+  },
+  "kit/games/uno.o.gz": {
+   "sha256": "192a0a0bd56b54368b623803bb396897f2394eedc11caa3ff91042956fb55f72",
+   "size": 43130
+  },
+  "kit/games/uttt.o.gz": {
+   "sha256": "e767a8ee295d5185a3befe01519e98a0acb8d4ca2c9842293053b740e476e522",
+   "size": 6573
+  },
+  "kit/icons/amongus.png": {
+   "sha256": "ce4befa1a03f35e7d711ae7923f92e9a62d6bd6dc5643927cc30a18985e329cc",
+   "size": 4705
+  },
+  "kit/icons/angrybirds.png": {
+   "sha256": "1be83d3f3469d0eeb408b7cfdd8b0c72938a14a8001efc78a2ef123d20992a1f",
+   "size": 3351
+  },
+  "kit/icons/badtime.png": {
+   "sha256": "39d40776c586b9cfe6594837819d1af7818b69745298f3b56dadec467e705ddb",
+   "size": 481
+  },
+  "kit/icons/balatro.png": {
+   "sha256": "462dfc802c56225ff39af13dd747b386e408fb1ae0ea822758aacd6e610d0678",
+   "size": 7286
+  },
+  "kit/icons/blockblast.png": {
+   "sha256": "00f448bbae57af7d57dabc1a59f77b4d03f34a2277b149ca0b234e824b2176b2",
+   "size": 3340
+  },
+  "kit/icons/breakout.png": {
+   "sha256": "aac59887a5a2fd4000c23470746b5016a9a41bcd733b11b957cadad4e044b93a",
+   "size": 3357
+  },
+  "kit/icons/buckshot.png": {
+   "sha256": "efe77398bb6dd7eaefa031e81e23db8af851e5384fbb865611ff3432de2454b5",
+   "size": 2780
+  },
+  "kit/icons/catninja.png": {
+   "sha256": "b6b563a8cfaf388085bf0909d3abf887d5a35dd843a6278ec50b9b56f655d45d",
+   "size": 967
+  },
+  "kit/icons/celeste.png": {
+   "sha256": "3f1bab0a308e203bf811f89958ccf90df7d91acf6b07d2028586eb8d972075df",
+   "size": 1346
+  },
+  "kit/icons/championisland.png": {
+   "sha256": "6ebfe4f0cbcec28ed7bfb44d05cb4f4bdaec9cacb2895534169a865701765621",
+   "size": 2529
+  },
+  "kit/icons/chess.png": {
+   "sha256": "7c2c2a3575923e1d8e6283becae1250b9cfbc2cfe10b9c719ad15ee26bda3b6a",
+   "size": 2006
+  },
+  "kit/icons/circloo.png": {
+   "sha256": "17fcfdbb2b5a3b555cc55c78642cc1ce352b09bc6b043114de5502cc3ce870a3",
+   "size": 2350
+  },
+  "kit/icons/clashroyale.png": {
+   "sha256": "cb1b004e284336c97a6bf17b7129c2d6162d5de2e6edc4ef20597ce2d660021c",
+   "size": 7159
+  },
+  "kit/icons/connectfour.png": {
+   "sha256": "82788f71b6d23d8ee307fd95faf722027bc71520f746cfae38d93bebc81b4da6",
+   "size": 6289
+  },
+  "kit/icons/cookieclicker.png": {
+   "sha256": "de468c59bec41372e1a95331f62865879028a49b0e72c30aa644d50d0c2578d9",
+   "size": 7475
+  },
+  "kit/icons/coreball.png": {
+   "sha256": "0351d0abd29a2b2646e8c725864edc734fcfcc18fc54b848867bb66e45bad338",
+   "size": 915
+  },
+  "kit/icons/crossyroad.png": {
+   "sha256": "3fc553af328df08b5229ad8e0f6c6970f90ad131989e3fb1ae0713dfa4b6dc80",
+   "size": 960
+  },
+  "kit/icons/deltarune.png": {
+   "sha256": "9260c9a520bcb8318b40a3bcb44ca573fba4453b997935edfdcb183aadc7f752",
+   "size": 981
+  },
+  "kit/icons/dinorun.png": {
+   "sha256": "8ccc8b6e70789ce131f10394f62758adfa1900dc2d0769df5eae4541738374b3",
+   "size": 941
+  },
+  "kit/icons/donkeykong.png": {
+   "sha256": "01313fc4c5052232b12de76cdc06ccad43bce249372c7992a89b3fae5a0823fa",
+   "size": 1276
+  },
+  "kit/icons/doodlejump.png": {
+   "sha256": "46ef8805f25db30ab1e0b762ad58fbd43f01d4f31a8267f92243b1a3a7055015",
+   "size": 4220
+  },
+  "kit/icons/doom.png": {
+   "sha256": "8b7369f4d733bcb4177338246d11b15e8942912a3d1dc30f83d42a5080489ad8",
+   "size": 2173
+  },
+  "kit/icons/dune.png": {
+   "sha256": "2843ef06eb7754a3016ef492cfa91227784ea25363120d77ae60363fcb08a739",
+   "size": 4291
+  },
+  "kit/icons/famidash.png": {
+   "sha256": "3456e710d3330b96459a300483a96d21050a638dde7189db4624e6ca3fe1e944",
+   "size": 1068
+  },
+  "kit/icons/finalearth2.png": {
+   "sha256": "72f2b10aeb1392016fe9e75eaead3fc07f6e67e3947f53d86eacd1db43f9139e",
+   "size": 1623
+  },
+  "kit/icons/flappybird.png": {
+   "sha256": "ac369a16e9b73b1da4d767c5b23044fa85e662a2092ce64488aba32fb5c87384",
+   "size": 3357
+  },
+  "kit/icons/flappydunk.png": {
+   "sha256": "a2457c30931a8615f3eef7d2b19623ae3ca92a522314dc8c9a340d3e02b2ca08",
+   "size": 5192
+  },
+  "kit/icons/fnaf.png": {
+   "sha256": "907b6bacdd1fe3a69a8d977e20a1927783d1c9205af383267b9c3e658f00897d",
+   "size": 5880
+  },
+  "kit/icons/fnaf2.png": {
+   "sha256": "7144bde401cee03fb4a625482ef5525da752e5ce287bc8724030771d806798e4",
+   "size": 7534
+  },
+  "kit/icons/fnaf3.png": {
+   "sha256": "4282285eb1088dbbdaeaaadb9f85c43a27c60af453c0ee97e8342739d0fdf000",
+   "size": 2519
+  },
+  "kit/icons/fnaf4.png": {
+   "sha256": "87565e53b2abb2936f3f9175dd39a3abafa24e077b6f63dea014e07d734c7d48",
+   "size": 5324
+  },
+  "kit/icons/fnafworld.png": {
+   "sha256": "ae6073fdfbf83e8bb2b3f6b4fa413107a1b459da3cfcc3ad4d30bbf8b8e77035",
+   "size": 7473
+  },
+  "kit/icons/fnf.png": {
+   "sha256": "51f8637b85407611e0e9adda769c9f676cdc588847b01c95b9f200e0ca1a0f16",
+   "size": 4607
+  },
+  "kit/icons/fourplayer.png": {
+   "sha256": "d974724d5293c41b529a906083f1584340c026ec04a74a39f2b19d03ef348012",
+   "size": 6522
+  },
+  "kit/icons/g2048.png": {
+   "sha256": "0e768afd2e411799faeb046ed499b5d56e38f6e2a63e69684a8ac8a9f99d137b",
+   "size": 1655
+  },
+  "kit/icons/hillclimb.png": {
+   "sha256": "970969d7f1c4b20bf3c70c3d8193e4f915d971a14adc5172f63ccef8ab340f20",
+   "size": 5144
+  },
+  "kit/icons/hkfungal.png": {
+   "sha256": "6d08a7ba2e437f56a5ecdded4307d8b638c71952189c3acbe5a6d30e5c3bc33b",
+   "size": 4947
+  },
+  "kit/icons/hollowknight.png": {
+   "sha256": "7184c66bbd7ac1abd2cdfa938a12599bb0895b8955f12967b1056cea480dfa74",
+   "size": 739
+  },
+  "kit/icons/imposter.png": {
+   "sha256": "880584a7eeaf5d2cde5c87db9893c3a081951289726c63079ee120da54ed74f9",
+   "size": 3301
+  },
+  "kit/icons/invaders.png": {
+   "sha256": "c23bd3633bb42fd605a5df51a87457e8e5b87cbbb6a6f489a4aaf990d50ecd28",
+   "size": 709
+  },
+  "kit/icons/isaac.png": {
+   "sha256": "0806e386422f7c5d8627af4f85cac4c8d485f08c000362ae85dce939966a090d",
+   "size": 1493
+  },
+  "kit/icons/jetpackjoyride.png": {
+   "sha256": "39814a784a6508dcaf111b13739b1625e233287ac0f17961a603a4b2e1af8378",
+   "size": 3850
+  },
+  "kit/icons/kingdomrush.png": {
+   "sha256": "2038690ec2cf6a2d97873ea1a1ffe235c7284f4270baab53172154a36da6863a",
+   "size": 7764
+  },
+  "kit/icons/leveldevil.png": {
+   "sha256": "8f1ee551baeddbf37d16438f41367353e14fb2cfae6c0e130eeeb391d044d9f7",
+   "size": 961
+  },
+  "kit/icons/mahjong.png": {
+   "sha256": "7a74aa6718e1c613619e7d6e3f28c87b45a8efde48e7f931437657c39df790d6",
+   "size": 542
+  },
+  "kit/icons/meowdoku.png": {
+   "sha256": "17c98dadb1ad3b705a4e3427fa369b2ce68f40a0ba4162b8e7ece7148597e4e5",
+   "size": 8154
+  },
+  "kit/icons/minesweeper.png": {
+   "sha256": "d5ca600e6779cfbad4908cb37c2a45a4bdc9be253cd83d47c719c92c965274ce",
+   "size": 2637
+  },
+  "kit/icons/monkeymart.png": {
+   "sha256": "8a19236a5550e2b87f1486a0e12f33dab49eb5a6cd6bc079ee281fc32dd72f4f",
+   "size": 4549
+  },
+  "kit/icons/motox3m.png": {
+   "sha256": "441a2e3fd7050efb10fb8a51080653454d0128c9a78b429426cae1fd4c219a9d",
+   "size": 7593
+  },
+  "kit/icons/mrbullet.png": {
+   "sha256": "aa5ec593553a15d6321258c00575eef3e3ed1a3b825c977a9bbc30c607001a04",
+   "size": 6190
+  },
+  "kit/icons/numblocks.png": {
+   "sha256": "ed4dacc18b92899d322f3858230cfaa82dcaa85f0ab1d8c99098a8179d1c3dbb",
+   "size": 3532
+  },
+  "kit/icons/numdash.png": {
+   "sha256": "c6f93c2ad4dc4835b85a7a47d5f8de2ccde13445842b00380ff97a1b864888e0",
+   "size": 1659
+  },
+  "kit/icons/numdrive.png": {
+   "sha256": "dfadb2a27bfbed94f3f67c0dac30339f8355762e2e61cafc6a7e27763276a5c9",
+   "size": 5854
+  },
+  "kit/icons/numpico.png": {
+   "sha256": "10b9261d371572b5b6c0e4b5c866998eb20ca97a9df24b18eb86febf0c17ddf1",
+   "size": 1920
+  },
+  "kit/icons/numpowder.png": {
+   "sha256": "19e9f053f0ed1b3d8047a6f3383321739e1bb5fcab4d1bf833f5fe8bb6d8d1dd",
+   "size": 3542
+  },
+  "kit/icons/numvisuals.png": {
+   "sha256": "63234bba8087dbb38ff6fa67d3f884beddded9e4265ae00fcdd53e3415ac28e6",
+   "size": 4028
+  },
+  "kit/icons/pacman.png": {
+   "sha256": "62e6bb8c00bb88184454468ed6b7c6f4ee29e5bb78aceb865b1fce1dbc459d29",
+   "size": 2987
+  },
+  "kit/icons/paperclips.png": {
+   "sha256": "709a327ceebf925b876a541ac988ae9075c2364d511caab92d3431f6374487e3",
+   "size": 4241
+  },
+  "kit/icons/polytrack.png": {
+   "sha256": "b0a63a0adaf2e88652fe8b2fe64aa1bb69351c5a76ec2ad11cba7e1974eeafcd",
+   "size": 1257
+  },
+  "kit/icons/portal.png": {
+   "sha256": "b5ab2e5f59c5a732b9a8a2a99ec75fa16712cb4eea86ac2e5ed0289d850dbaaf",
+   "size": 1884
+  },
+  "kit/icons/pvz.png": {
+   "sha256": "c851fa72935bd8497cca111b3f97a8ffd631d153aa8c006acdafb9ff5abb85a3",
+   "size": 7872
+  },
+  "kit/icons/retrogo.png": {
+   "sha256": "0d47f3410698381593a4ed10cf18942f9f010820f6208341d84f972434d2a5fc",
+   "size": 4128
+  },
+  "kit/icons/rider.png": {
+   "sha256": "446411f7a621393a5796f8d44d80bef8cad0d89b140ec9f6a24febad02aaae3b",
+   "size": 3839
+  },
+  "kit/icons/snake.png": {
+   "sha256": "aa7fe32ebf8e1abf984056d2de4f1fc3b65f9e50f3f83cf649644b2d487b8736",
+   "size": 2884
+  },
+  "kit/icons/snowrider.png": {
+   "sha256": "e243fe50401b730fab22f099722bf3593d3f8203b082c661108b303de9957141",
+   "size": 9008
+  },
+  "kit/icons/sokoban.png": {
+   "sha256": "2f038daa19bf42bb2b0fea920feb94247a829480f93edd87571ee5d2c28385cc",
+   "size": 3262
+  },
+  "kit/icons/solitaire.png": {
+   "sha256": "8807700a26654cb800a50600f0eefd956851408b4061e4f7c538d10957c06ffc",
+   "size": 5189
+  },
+  "kit/icons/sonic.png": {
+   "sha256": "06f5194e6033549b16f1575fdb29721a4b29f1f56f79c4218105f09c8d713ac2",
+   "size": 7233
+  },
+  "kit/icons/stickmanhook.png": {
+   "sha256": "b6795f562c37dd77bc051170ac8363f2f9159e7585fdb200f502a90780bdb3db",
+   "size": 4089
+  },
+  "kit/icons/subway.png": {
+   "sha256": "d9997dcdf42e76d9ebf2671bd519d92ce64d01e1fca75ae781e6e674b442fb8a",
+   "size": 8610
+  },
+  "kit/icons/sudoku.png": {
+   "sha256": "2bc716843c6a76cef221fb647ea2098e7286266ea050c4cfa27912b3e5de5c95",
+   "size": 3621
+  },
+  "kit/icons/suika.png": {
+   "sha256": "96d85236597f867c3d6ae4bae5a35f611b6400867bc46f3556c8d7d8bb2cb814",
+   "size": 2571
+  },
+  "kit/icons/templerun.png": {
+   "sha256": "02584656a240fa85823816536409c07f3822b3239b429bf17815c4b4677a8b6b",
+   "size": 7818
+  },
+  "kit/icons/tetris.png": {
+   "sha256": "aa69a401db73c081c7ee6d609a0a23dc0026a78fb2345ab57b815ff44beff275",
+   "size": 1127
+  },
+  "kit/icons/tombofthemask.png": {
+   "sha256": "0f5a32fc941069bc69b9c1f9cb95de6c893a1c9a4b8f3dc0feb58aba3267c39b",
+   "size": 630
+  },
+  "kit/icons/towerblock.png": {
+   "sha256": "343da0b0730d390201283c99ec2f8fd6c683ea1d7b7d280426a384ebcae8e0ac",
+   "size": 2985
+  },
+  "kit/icons/twoplayer.png": {
+   "sha256": "5cbbb6b6d1fac16322f86e20ed806f0bcc9914d6522e84e0d18d12911d6904c3",
+   "size": 1433
+  },
+  "kit/icons/undertale.png": {
+   "sha256": "1d9a254b7d02f4c938c14c038da3f0ded0c776b792920cb31bb4d859d2e34651",
+   "size": 603
+  },
+  "kit/icons/uno.png": {
+   "sha256": "2fd8c252a7f29ac8c8cbe6c47c856d62392a5ae96d5719b201f385c2530ba18e",
+   "size": 2441
+  },
+  "kit/icons/uttt.png": {
+   "sha256": "5139de5801bcebb1b978700d34fda38b258cd968c28a779120de6cd0a06e577c",
+   "size": 2943
+  },
+  "kit/kit.json": {
+   "sha256": "c557470725d5b5ef30d4e808b8d224dcfc5f579e640f47accd3a45d3fd20f0b0",
+   "size": 69889
+  },
+  "kit/variants/NumPlay-Invisible-icon.o.gz": {
+   "sha256": "0e589079bbe669b081984a9654f6edcf0fb013dd2aebfa0f574d02d623034511",
+   "size": 154
+  },
+  "kit/variants/NumPlay-Invisible-name.o.gz": {
+   "sha256": "4d62481f9fd9c6192f3853812dd124403b5f2412c6aebc9bf38b0f46922909b1",
+   "size": 363
+  },
+  "kit/variants/NumPlay-Invisible.png": {
+   "sha256": "46c31ecf82e6aee905269daea021df952d05633c39ba0a0ca833c4f507353448",
+   "size": 475
+  },
+  "kit/variants/NumPlay-Matrices-icon.o.gz": {
+   "sha256": "560429316a0e34de44921d5f5b88c50d8f056f962f1f5ac931c0cfc0372166a1",
+   "size": 1263
+  },
+  "kit/variants/NumPlay-Matrices-name.o.gz": {
+   "sha256": "7e6bf86402392beb2e92de58984b47b905c0ad3ccd289601a27d20ba7b66333d",
+   "size": 371
+  },
+  "kit/variants/NumPlay-Matrices.png": {
+   "sha256": "755c437804b7fa5494d1a9710f46c7a729060ea3afaccf5558cf9c3a9a08eae8",
+   "size": 2292
+  },
+  "kit/variants/NumPlay-icon.o.gz": {
+   "sha256": "c89051fef970798dbdf6d850c5bac19450ce9cfe226aa4048677c544c7ecd4f4",
+   "size": 3351
+  },
+  "kit/variants/NumPlay-name.o.gz": {
+   "sha256": "b61224e9f370660910111af95e76aa7708a6f1ebc74e08b61124373c68c0970b",
+   "size": 369
+  },
+  "kit/variants/NumPlay.png": {
+   "sha256": "3ea30ec4ac434d4f95ae426de621cee1c06d52e471fe2538ee07d78a1fbdf313",
+   "size": 6441
+  },
+  "kit/zh/arena.o.gz": {
+   "sha256": "3116a271a27549f701d4b7827f586bc2fd5f6601b4401c2ca95ebfbd4ecdebbb",
+   "size": 2410
+  },
+  "kit/zh/base.o.gz": {
+   "sha256": "83a7a284b81a926075f966eabe2fd9c6e6cfb2d4925c083e41a54310429aba8a",
+   "size": 81469
+  },
+  "kit/zh/games/balatro.o.gz": {
+   "sha256": "418180baafeba948a55887a2979e8de97dd5f7d74e9979406c886f7c795fe0e9",
+   "size": 234297
+  },
+  "kit/zh/games/blockblast.o.gz": {
+   "sha256": "1d78f77ff090e7ee2ca2f5ab647cbd7dfca910602c958d6504191b9a12f3daf6",
+   "size": 7780
+  },
+  "kit/zh/games/breakout.o.gz": {
+   "sha256": "2ba6fbfdc6b44e118b10f80d2a26b130f6856133750d09290da05c8782eac1c5",
+   "size": 13745
+  },
+  "kit/zh/games/buckshot.o.gz": {
+   "sha256": "324cbf3b6b4841c065c31ba69cd684d5db38c04517e5895d98eb2e4f1beac456",
+   "size": 247782
+  },
+  "kit/zh/games/chess.o.gz": {
+   "sha256": "3480618f9786f541b8fec348c5b5a58002f5a9b9d52b6a7bcc099baa17cd02fa",
+   "size": 22695
+  },
+  "kit/zh/games/connectfour.o.gz": {
+   "sha256": "b10b91fab7896bdaed8c0579f4562983234f372f690aa2b97c897b68f6e6b434",
+   "size": 16822
+  },
+  "kit/zh/games/coreball.o.gz": {
+   "sha256": "d084d831aa328ad81fa9c9762d9ede176dee1145ef16616302df4bbe9af392fa",
+   "size": 6517
+  },
+  "kit/zh/games/crossyroad.o.gz": {
+   "sha256": "dd2224534752b5fb40b0d8a7fdc8e4be810ececad9e69dc10f28f1c7ca580bf0",
+   "size": 24247
+  },
+  "kit/zh/games/dinorun.o.gz": {
+   "sha256": "8e4139d8f4da112cea6948e7d65a5b153eec5618e45a3eb63072363a19496300",
+   "size": 16256
+  },
+  "kit/zh/games/flappybird.o.gz": {
+   "sha256": "e4ad7b8920e0a530cf9777fd6a76dd4a90358102d1226103986134b1d9df621c",
+   "size": 18449
+  },
+  "kit/zh/games/g2048.o.gz": {
+   "sha256": "76999a876bf0a3873f513c0b2c93f8cd7e4e3d41927b55fe57a6d5b59b14e0f2",
+   "size": 16432
+  },
+  "kit/zh/games/invaders.o.gz": {
+   "sha256": "c6662e9318f203d2a6303e63cbe261bc04e976c560e774325344cd281ed86f6f",
+   "size": 6762
+  },
+  "kit/zh/games/minesweeper.o.gz": {
+   "sha256": "79fc53a547739210de8a379bd3df5a62a86fe2d51a9f29e7094f188f2cdd845c",
+   "size": 17363
+  },
+  "kit/zh/games/numblocks.o.gz": {
+   "sha256": "b135f9c427486ac2552c1646783dd0eddaeae858dedd90a64208aeba89f9f8cb",
+   "size": 278577
+  },
+  "kit/zh/games/numdash.o.gz": {
+   "sha256": "ff573a76ea187e2d0eb3dc99148203e1df8150cdfbbfdaba121abe9a992243a3",
+   "size": 316804
+  },
+  "kit/zh/games/numdrive.o.gz": {
+   "sha256": "0a0d90652efb21a4fa2c05494e99ac48b98f04e142db7f574a449a53b0ef84a8",
+   "size": 186048
+  },
+  "kit/zh/games/numvisuals.o.gz": {
+   "sha256": "37539c1289e1b71b9b2eb51f865693d60bf6997be86e4360e8962441f0546724",
+   "size": 57240
+  },
+  "kit/zh/games/pacman.o.gz": {
+   "sha256": "5eba1c03552ae46b83c55bc6b009c91858ff7341cb854905222e431e9f0905af",
+   "size": 18038
+  },
+  "kit/zh/games/portal.o.gz": {
+   "sha256": "1ad6a2efe4ab14a54a398fd0541b166fb07ac75c6b0ede1559612e7243a81331",
+   "size": 32936
+  },
+  "kit/zh/games/retrogo.o.gz": {
+   "sha256": "dc1c17b608551af8356bee94c7c6bf6a66aac1f168a00ac64a92218b1abf946c",
+   "size": 103385
+  },
+  "kit/zh/games/snake.o.gz": {
+   "sha256": "1bed41790bd2c7ab38a2ddab65c2bd66fe5bc11d95690485c106fc626df5edc5",
+   "size": 19887
+  },
+  "kit/zh/games/sokoban.o.gz": {
+   "sha256": "93782b12f9cc1b45a0262ff8abcf71fff43d64c91d9cf8fcfca1314e59cca5d4",
+   "size": 6866
+  },
+  "kit/zh/games/solitaire.o.gz": {
+   "sha256": "03aa4e34ae84bec6aca5e58ad7d581b7c8ff25f084f4053ff9d3b075dcbf6577",
+   "size": 19298
+  },
+  "kit/zh/games/sudoku.o.gz": {
+   "sha256": "3bc8b9a2450b8117eb0c36a5e78603cd1b65760da692db66eea51b1e2a2c1b21",
+   "size": 6417
+  },
+  "kit/zh/games/suika.o.gz": {
+   "sha256": "5136e50bee1e01d1d815797deef538d34ce96a6b23fb2f72e66531bcbcb37467",
+   "size": 13190
+  },
+  "kit/zh/games/tetris.o.gz": {
+   "sha256": "90726811328dc8bce9a2d00b40c4a0ecec6cc6e43523f23e7e8a2d525399d3b1",
+   "size": 35443
+  },
+  "kit/zh/games/towerblock.o.gz": {
+   "sha256": "8226661daed76ac51870d8437cade51f724d51e24af340272f080a7493445a7e",
+   "size": 6517
+  },
+  "kit/zh/games/twoplayer.o.gz": {
+   "sha256": "fb929cff3ed2da409350b4b2e1868aac2d2ac270008c5cb0f39f22d7bd83b736",
+   "size": 15322
+  },
+  "kit/zh/games/uttt.o.gz": {
+   "sha256": "a452ccef5385bae696ecff5c36447f75ee4db865765d1658b7a830c6d3b64f9c",
+   "size": 6690
+  },
+  "kit/zh/kit.json": {
+   "sha256": "9e87993460a94e510b9d914d89fc83287408788b06b4d9fcaf87c1ce24cd7325",
+   "size": 70604
+  },
+  "pico.js": {
+   "sha256": "444c0be66434b68c765c690a24920dce7f21d15701cd49d500a21aa663e322aa",
+   "size": 17142
+  }
+ }
+}

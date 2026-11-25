@@ -7,11 +7,12 @@ import { Dfu } from './lib/dfu.js';
 import { readInfo, scanApps, parseAppHeader, hex, SECTOR, SLOT_B } from './lib/calc.js';
 import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall } from './lib/install.js';
-import { parseStorage, buildStorage } from './lib/storage.js';
+import { parseStorage, buildStorage, recordSize, MAX_RECORD } from './lib/storage.js';
+import { firmwareChoices } from './lib/fwchoice.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
-import { t, errText, size as kb, mb, applyDom, initLangSelect } from './i18n/index.js';
+import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 applyDom();
@@ -73,12 +74,15 @@ async function job(name, fn) {
 }
 
 // ------------------------------------------------------------------ connecting
-if (!('usb' in navigator)) {
-  status(T('connect.noWebUsb'), 'warn');
+const MOCK = new URLSearchParams(location.search).has('mock');  // a pretend calculator, for testing (dev/mockdfu.js)
+// iPhone and iPad: no WebUSB in any of their browsers (they're all WebKit underneath). iPadOS says it's a Mac:
+// a "Mac" with a touch screen is an iPad.
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const NO_USB = !MOCK && (IOS || !('usb' in navigator));
+if (NO_USB) {
+  status(T(IOS ? 'connect.ios' : 'connect.noWebUsb'), 'warn');
   $('#connect').disabled = true;
 }
-
-const MOCK = new URLSearchParams(location.search).has('mock');  // a pretend calculator, for testing (dev/mockdfu.js)
 
 $('#connect').addEventListener('click', () => job('connect', async () => {
   if (MOCK) return connect(null);
@@ -220,7 +224,7 @@ function render() {
   $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !on;
   $('#info').hidden = !on;
   $('#connect').textContent = t(on ? 'connect.again' : 'connect.button');
-  for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on);
+  for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on) || (b.id === 'connect' && NO_USB);
   if (!on) return;
   const i = st.info;
   renderFirmware();
@@ -367,9 +371,11 @@ $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   const j = await r.json();
   if (!r.ok) throw serverError(j, r.status);
   st.fw = j;
+  st.fwChoice = firmwareChoices(j, { version: st.info.version, patch: st.info.patch });
   st.fwSetup = null;
   $('#fw-setup').hidden = true;
-  log(`NumWorks offers Epsilon ${j.version} (${j.patch_level}) for the ${st.info.model}`);
+  log(`NumWorks offers Epsilon ${j.version} (${j.patch_level}) for the ${st.info.model}; kept here: ${(j.versions || []).map((v) => v.version).join(', ') || 'none'}`
+    + (j.cache?.offline ? ' (NumWorks unreachable at the last check: ' + j.cache.error?.error + ')' : ''));
 }));
 
 function fwSetup(text) { st.fwSetup = text; drawFwSetup(); }
@@ -381,24 +387,54 @@ function drawFwSetup() {
   $('#fw-box').hidden = true;
 }
 
+// the version picked in #fw-version: { version, patch, size, kind, available }
+const fwPicked = () => st.fwChoice?.options.find((o) => o.version === st.fwChoice.selected) || null;
+
+// #fw-version: the calculator's own version first when it's kept (recommended), then the other kept ones, newest first
+function drawFwVersions() {
+  const sel = $('#fw-version'), c = st.fwChoice;
+  sel.textContent = '';
+  for (const o of c.options) {
+    const op = el('option', '', t('fw.opt.' + o.kind, { version: o.version, patch: o.patch || '?' }) + (o.available ? '' : ' ' + t('fw.opt.notKept')));
+    op.value = o.version;
+    op.disabled = !o.available;
+    sel.append(op);
+  }
+  sel.value = c.selected || '';
+  sel.disabled = st.busy;
+}
+$('#fw-version').addEventListener('change', (e) => { if (st.fwChoice) { st.fwChoice.selected = e.target.value; render(); } });
+
 function renderFirmware() {
-  const i = st.info, f = st.fw;
-  $('#fw-box').hidden = !f;
-  if (!f) return;
+  const i = st.info, all = st.fw;
+  $('#fw-box').hidden = !all;
+  if (!all) return;
+  drawFwVersions();
+  const p = fwPicked();
+  const f = { version: p?.version, patch_level: p?.patch, size: p?.size, name: p?.version };
   const target = i.slot === 'A' ? 'B' : 'A';
-  const same = f.version === i.version && f.patch_level === i.patch;
+  const same = f.version === i.version && (f.patch_level == null || f.patch_level === i.patch);
+  const currentKept = st.fwChoice.options.some((o) => o.kind === 'current');
+  $('#fw-recommend').hidden = false;
+  $('#fw-recommend').textContent = t(currentKept ? 'fw.sameRecommended' : 'fw.currentNotKept', { version: i.version });
+  const c = all.cache;
+  $('#fw-cache').hidden = !c;
+  if (c) $('#fw-cache').textContent = [c.offline && t('fw.cacheOffline', { msg: c.error ? errText(c.error) : '' }),
+    c.lastChecked && t('fw.cacheChecked', { time: new Date(c.lastChecked).toLocaleString(getLang()) })].filter(Boolean).join(' ');
   $('#fw-now').textContent = t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot });
-  $('#fw-new').textContent = t('fw.offer', { version: f.version, patch: f.patch_level });
+  $('#fw-new').textContent = t('fw.offer', { version: all.version, patch: all.patch_level });
   const appsInB = st.scan.apps.some((a) => a.address + a.size > SLOT_B);
   $('#fw-note').textContent = [same && t('fw.same'), t('fw.goesIn', { slot: target }),
     t(target === 'A' ? 'fw.slotA' : 'fw.twice'), target === 'B' && appsInB && t('fw.breaksB')].filter(Boolean).join(' ');
   $('#fw-install').textContent = same ? t('fw.reinstall', { slot: target }) : t('fw.updateTo', { version: f.version });
   $('#fw-plan').textContent = t('fw.plan', { size: f.size || 0, slot: target });
-  $('#fw-install').disabled = st.busy;
+  $('#fw-install').disabled = st.busy || !p?.available;
 }
 
 $('#fw-install').addEventListener('click', async () => {
-  const i = st.info, f = st.fw;
+  const i = st.info, p = fwPicked();
+  if (!p?.available) return;
+  const f = { version: p.version, patch_level: p.patch, name: p.version };
   const target = i.slot === 'A' ? 'B' : 'A';
   const keep = $('#fw-keep').checked;
   if (!await confirmDialog(() => t('fw.confirm', { version: f.version, patch: f.patch_level, slot: target }) + ' '
@@ -416,11 +452,18 @@ $('#fw-install').addEventListener('click', async () => {
     if (slots.length !== 1 || slots[0] === i.slot) throw uiError('fw.wrongSlot', { slots: slots.join('+'), slot: i.slot }, `The firmware's writable part is for slot ${slots.join('+')}, but the calculator runs from slot ${i.slot}: stopping`);
     log(`Firmware: ${elements.map((e) => hex(e.address) + ' (' + e.data.length + ' bytes)').join(', ')} for slot ${slots[0]}`);
     // 2. the files, so the scripts can come back
-    let scripts = [];
+    let scripts = [], skipped = [];
     if (keep) {
       const raw = await st.dfu.read(i.storageAddress, i.storageSize);
       download(raw, `numworks-files-${stamp()}.bin`);
       scripts = (parseStorage(raw)?.files || []).filter((x) => /\.py$/.test(x.name));
+      // (a record holds at most 64 KB: anything bigger can't be put back, only kept in the backup)
+      const tooBig = scripts.filter((x) => recordSize(x) > MAX_RECORD);
+      if (tooBig.length) {
+        scripts = scripts.filter((x) => !tooBig.includes(x));
+        skipped = tooBig.map((x) => x.name);
+        log(`Too big to put back (kept in the backup .bin only): ${skipped.join(', ')}`);
+      }
       log(`Saved ${scripts.length} Python script(s) and a backup of all files`);
     }
     // 3. write, checking every byte
@@ -458,11 +501,21 @@ $('#fw-install').addEventListener('click', async () => {
       const have = new Set((now?.files || []).map((x) => x.name));
       const missing = scripts.filter((x) => !have.has(x.name));
       if (missing.length) {
-        await st.dfu.program(st.info.storageAddress, buildStorage((now?.files || []).concat(missing), st.info.storageSize));
+        // (buildStorage refuses, rather than cuts, anything that doesn't fit; the backup .bin has everything)
+        try {
+          await st.dfu.program(st.info.storageAddress, buildStorage((now?.files || []).concat(missing), st.info.storageSize));
+        } catch (e) {
+          if (e.code !== 'storage.full' && e.code !== 'storage.tooBig') throw e;
+          log('Could not put the scripts back: ' + e.message);
+          status(T('fw.scriptsNoRoom', { count: missing.length }), 'warn');
+          await rescan();
+          return;
+        }
         await rescan();
       }
       log(`Put back ${missing.length} Python script(s)`);
     }
+    if (skipped.length) { status(T('fw.scriptsSkipped', { count: skipped.length, files: skipped }), 'warn'); return; }
     status(T('fw.updated', { version: st.info.version, slot: st.info.slot }), 'ok');
   });
 });

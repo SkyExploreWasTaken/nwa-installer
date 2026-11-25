@@ -11,3 +11,5 @@ extra/
 public/dev/mock/
 *.nwa
 *.bin
+# firmware downloaded from NumWorks, kept by the server (cache/firmware/)
+cache/

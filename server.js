@@ -23,6 +23,13 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 // never served, even if they end up in public/
 const PRIVATE = /(^|\/)(numworks-account\.json|node_modules|\.git)(\/|$)/i;
 
+// on every response. The page has no inline scripts or styles (styles set from JS go through the CSSOM, which CSP allows);
+// the linker (vendor/ld.wasm, objcopy.wasm) needs 'wasm-unsafe-eval' to compile WebAssembly.
+const CSP = ["default-src 'self'", "script-src 'self' 'wasm-unsafe-eval'", "style-src 'self'", "img-src 'self' blob: data:",
+  "connect-src 'self'", "worker-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"].join('; ');
+const SECURITY_HEADERS = { 'Content-Security-Policy': CSP, 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer' };
+
 function send(res, status, obj) {
   const b = Buffer.from(JSON.stringify(obj));
   res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': b.length, 'Cache-Control': 'no-store' });
@@ -43,6 +50,7 @@ function serveFile(req, res, pathname) {
 }
 
 const server = http.createServer(async (req, res) => {
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   // the page and its API answer only to this computer, and only to pages from this server
   const host = (req.headers.host || '').toLowerCase();
   if (!ALLOWED_HOSTS.includes(host.replace(/:\d+$/, ''))) { res.writeHead(403); return res.end(); }
@@ -64,5 +72,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, '127.0.0.1', () => {
+  // NumWorks' firmware: checked now and then every hour (NWA_FW_SCHEDULE=0 turns the timer off, for tests)
+  if (process.env.NWA_FW_SCHEDULE !== '0') numworks.start();
   console.log(`NWA Installer on http://localhost:${PORT}/  (firmware updates: ${numworks.status().account ? 'NumWorks account found' : 'no numworks-account.json'})`);
 });

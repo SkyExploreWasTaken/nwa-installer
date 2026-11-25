@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Tests numworks.js (signing in to my.numworks.com, fetching the firmware) against a pretend my.numworks.com that
+// Tests numworks.js (signing in to my.numworks.com, fetching the firmware into its cache) against a pretend my.numworks.com that
 // works like the real one: a Rails/Devise sign-in form with a CSRF token, and pages that send you to it when signed out.
 //   node tools/test-numworks.mjs
 import http from 'http';
@@ -7,7 +7,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import assert from 'assert/strict';
-import { spawn } from 'child_process';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,7 +16,7 @@ const FIRMWARE = Buffer.from('DfuSe pretend firmware');
 
 // the pretend my.numworks.com
 const sessions = new Map();  // session id -> { token, user }
-let nextId = 1, signIns = 0;
+let nextId = 1, signIns = 0, dfuDownloads = 0;
 const cookieOf = (req) => /(?:^|;\s*)_nw_session=([^;]+)/.exec(req.headers.cookie || '')?.[1];
 const fake = http.createServer((req, res) => {
   let id = cookieOf(req);
@@ -48,52 +48,50 @@ const fake = http.createServer((req, res) => {
   if (!s.user) return req.url.startsWith('/firmwares/') ? (res.writeHead(401), res.end()) : redirect('/users/sign_in');
   if (req.url === '/devices/upgrade') { res.writeHead(200); return res.end('<div data-settings="{&quot;flash&quot;:&quot;stable&quot;}">'); }
   if (req.url === '/firmwares/N0120/stable.json') { res.writeHead(200); return res.end('{"version":"24.4.0","patch_level":"abc"}'); }
-  if (req.url === '/firmwares/N0120/stable.dfu') { res.writeHead(200); return res.end(FIRMWARE); }
+  if (req.url === '/firmwares/N0120/stable.dfu') { dfuDownloads++; res.writeHead(200); return res.end(FIRMWARE); }
   res.writeHead(404); res.end();
 });
 await new Promise((ok) => fake.listen(0, '127.0.0.1', ok));
 
-// the installer's server, signed in to it
+// numworks.js in this process, its firmware cache in a temporary folder (the hourly timer isn't started: the test
+// runs the checks itself, as the timer would)
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nwa-test-'));
 const accountFile = path.join(dir, 'numworks-account.json');
-const port = 18642 + Math.floor(Math.random() * 1000);
-const server = spawn(process.execPath, [path.join(repo, 'server.js'), String(port)], { stdio: ['ignore', 'pipe', 'inherit'],
-  env: { ...process.env, NUMWORKS_URL: 'http://127.0.0.1:' + fake.address().port, NUMWORKS_ACCOUNT: accountFile } });
-await new Promise((ok) => server.stdout.once('data', ok));
-const api = async (p) => {
-  const r = await fetch(`http://localhost:${port}/api/${p}`);
-  return { status: r.status, body: r.headers.get('content-type') === 'application/json' ? await r.json() : Buffer.from(await r.arrayBuffer()) };
-};
+Object.assign(process.env, { NUMWORKS_URL: 'http://127.0.0.1:' + fake.address().port, NUMWORKS_ACCOUNT: accountFile,
+  NWA_FW_CACHE: path.join(dir, 'cache') });
+const nw = createRequire(import.meta.url)(path.join(repo, 'numworks.js'));
+nw.cache.log = () => {};
+const err = (f) => { try { f(); } catch (e) { return e; } assert.fail('expected an error'); };
 
 try {
-  let r = await api('status');
-  assert.deepEqual(r.body, { account: false }, 'no account file');
-  assert.equal((await api('firmware/N0120.json')).status, 412);
+  assert.deepEqual(nw.status(), { account: false }, 'no account file');
+  await nw.cache.refreshAll();
+  assert.equal(err(() => nw.cache.info('N0120')).status, 412, 'no account: the check failed, nothing kept');
 
   fs.writeFileSync(accountFile, JSON.stringify({ email: EMAIL, password: 'wrong' }));
-  assert.equal((await api('status')).body.account, true);
-  r = await api('firmware/N0120.json');
-  assert.equal(r.status, 401, 'wrong password');
+  assert.equal(nw.status().account, true);
+  await nw.cache.refreshAll();
+  assert.equal(err(() => nw.cache.info('N0120')).status, 401, 'wrong password');
 
   fs.writeFileSync(accountFile, JSON.stringify({ email: EMAIL, password: PASSWORD }));
-  r = await api('firmware/N0120.json');
-  assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.deepEqual(r.body, { name: 'stable', version: '24.4.0', patch_level: 'abc' });
-  r = await api('firmware/N0120.dfu?version=stable');
-  assert.deepEqual(r.body, FIRMWARE);
+  await nw.cache.refreshAll();
+  const info = nw.cache.info('N0120');
+  assert.equal(info.version, '24.4.0');
+  assert.equal(info.patch_level, 'abc');
+  assert.equal(info.cache.offline, false);
+  assert.deepEqual(info.versions.map((v) => v.version), ['24.4.0']);
+  assert.deepEqual(nw.cache.firmware('N0120', '24.4.0').body, FIRMWARE);
   assert.equal(signIns, 1, 'signed in once, then kept the session');
 
   sessions.clear();  // the session expires
-  r = await api('firmware/N0120.dfu?version=stable');
-  assert.deepEqual(r.body, FIRMWARE, 'signs in again');
-  assert.equal(signIns, 2);
+  await nw.cache.refreshAll();
+  assert.equal(signIns, 2, 'signs in again');
+  assert.equal(dfuDownloads, 1, 'a version already kept is not downloaded again');
 
-  assert.equal((await api('firmware/N9999.json')).status, 400);
   fs.writeFileSync(accountFile, '{ nope');
-  assert.match((await api('status')).body.error, /not valid JSON/);
+  assert.match(nw.status().error, /not valid JSON/);
   console.log('numworks.js: all good');
 } finally {
-  server.kill();
   fake.close();
   fs.rmSync(dir, { recursive: true, force: true });
 }
