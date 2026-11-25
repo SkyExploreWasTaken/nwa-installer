@@ -13,3 +13,5 @@ public/dev/mock/
 *.bin
 # firmware downloaded from NumWorks, kept by the server (cache/firmware/)
 cache/
+# browser network captures (they hold session cookies): never commit
+*.har

@@ -23,7 +23,8 @@ export const hex = (n) => '0x' + (n >>> 0).toString(16).padStart(8, '0');
 export async function readInfo(dfu) {
   // the model: from the USB descriptor when the software gives it, else what the person picked for this calculator
   // before, else null: the page asks (model.js). Never guessed.
-  const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName: dfu.device?.productName || dfu.productName || '', layouts: dfu.layouts });
+  const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName: dfu.device?.productName || dfu.productName || '',
+    serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
   const serial = dfu.device?.serialNumber || null;
   const saved = m.certain ? null : savedModel(serial, m.choices);
   const info = { model: m.model || saved, modelSource: m.certain ? 'usb' : saved ? 'user' : null, modelChoices: m.choices, serial,

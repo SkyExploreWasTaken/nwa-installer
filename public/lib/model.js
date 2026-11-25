@@ -8,12 +8,19 @@
 //    ion/src/device/shared/usb/calculator.h) the person reads the model number on the back of the calculator and picks
 //    it; their choice is kept for that calculator (by its serial number). The memories its DFU interface shows only
 //    rule out models it can't be (an N0100 has no external flash, only the N0120 has RAM at 0x24000000), never pick one.
+//  - 0x0120 is the N0120 Portugal prototype when its serial number is that prototype's (as NumWorks' page does).
 // (The FCC ID shown in Settings > About, "2ALWP-N0xxx", is not used: on Epsilon 16+ it comes from the kernel, whose
 // source isn't public, and there's no N0115 FCC ID, so it can't be relied on.)
 //   detectModel({ usbVersion, productName, layouts }) -> { model: 'N0120' | null, certain, choices: [models possible] }
 
 export const MODELS = ['N0100', 'N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'];
-const BY_BCD = { '1.1.0': 'N0110', '1.1.5': 'N0115', '1.2.0': 'N0120' };
+const BY_BCD = { '1.1.0': 'N0110', '1.1.5': 'N0115', '1.2.0': 'N0120', '2.0.0': 'N0200' };
+// NumWorks' own updater page (my.numworks.com/devices/upgrade, its script cdn.numworks.com/8221c22f.js, function
+// reading the device descriptor's bytes 12-13) uses the same numbers, trusts them only from a device named
+// "NumWorks Calculator" or "NumWorks Scientific Calculator" (0x0200: the N0200), and tells the one Portugal
+// prototype apart by its serial number:
+const PRODUCTS = /^NumWorks (Scientific )?Calculator$/;
+const PORTUGAL_PROTOTYPE_SERIAL = 'EAAbABVROTUxNDM4';
 
 // the bytes of the memories that start in [lo, hi]
 function size(layouts, lo, hi) {
@@ -37,11 +44,12 @@ export function possibleModels(layouts) {
   });
 }
 
-export function detectModel({ usbVersion = null, productName = '', layouts = [] } = {}) {
+export function detectModel({ usbVersion = null, productName = '', serialNumber = '', layouts = [] } = {}) {
   const choices = possibleModels(layouts);
   const bcd = Array.isArray(usbVersion) && usbVersion.length === 3 ? usbVersion.join('.') : null;
-  // (Upsilon's own builds don't follow NumWorks' numbering: only a NumWorks build's number is trusted)
-  const model = bcd && !/upsilon/i.test(productName) ? BY_BCD[bcd] || null : null;
+  // (only a NumWorks build's number is trusted: Upsilon's, for one, doesn't follow it)
+  let model = bcd && PRODUCTS.test(productName) ? BY_BCD[bcd] || null : null;
+  if (model === 'N0120' && serialNumber === PORTUGAL_PROTOTYPE_SERIAL) model = 'N0120_PORTUGAL_PROTOTYPE_20210930';
   return { model, certain: !!model, choices: model ? [model] : choices.length ? choices : [...MODELS] };
 }
 

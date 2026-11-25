@@ -277,7 +277,17 @@ test('model: N0110, N0115, N0120 are certain from the USB descriptor (bcdDevice)
     const d = usbDev(bcd);
     assert.deepEqual(detectModel({ usbVersion: usbVersionOf(d), productName: d.productName, layouts: MEM[model] }), { model, certain: true, choices: [model] }, model);
   }
-  assert.equal(detectModel({ usbVersion: [1, 1, 5], layouts: MEM.N0110 }).model, 'N0115', 'the descriptor, not the memories');
+  assert.equal(detectModel({ usbVersion: [1, 1, 5], productName: 'NumWorks Calculator', layouts: MEM.N0110 }).model, 'N0115', 'the descriptor, not the memories');
+  assert.equal(detectModel({ usbVersion: [1, 1, 5], productName: 'Some Other Device', layouts: MEM.N0110 }).model, null, 'only from a NumWorks product name');
+});
+
+test("model: NumWorks' own rules: the Portugal prototype by its serial, the N0200 by 0x0200", () => {
+  const proto = usbDev(0x0120, 'NumWorks Calculator', 'EAAbABVROTUxNDM4');
+  assert.deepEqual(detectModel({ usbVersion: usbVersionOf(proto), productName: proto.productName, serialNumber: proto.serialNumber, layouts: MEM.N0120 }),
+    { model: 'N0120_PORTUGAL_PROTOTYPE_20210930', certain: true, choices: ['N0120_PORTUGAL_PROTOTYPE_20210930'] });
+  const other = usbDev(0x0120, 'NumWorks Calculator', 'EgAaAAZRNTAxOTMy');
+  assert.equal(detectModel({ usbVersion: usbVersionOf(other), productName: other.productName, serialNumber: other.serialNumber, layouts: MEM.N0120 }).model, 'N0120');
+  assert.equal(detectModel({ usbVersion: [2, 0, 0], productName: 'NumWorks Scientific Calculator' }).model, 'N0200');
 });
 
 test('model: no certain descriptor, no guess: the memories only narrow the choices', () => {
