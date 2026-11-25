@@ -6,13 +6,13 @@
 // N0200 (numworks/epsilon, shared/ion/src/device/include/n01xx/config/usb.h, `BCDDevice`).
 // Anything else is only half supported, or not at all, and the page says why instead of guessing (gate.js):
 //  - 0x0100 (Epsilon 15 and older, Upsilon, Omega) on the N0100's memories (1 MB internal flash, no external flash):
-//    the N0100. Not really supported (too old): { model: 'N0100', limited: 'n0100' }, never any firmware.
+//    the N0100, refused: too old, no external flash so no app area for .nwa apps, and NumWorks stopped updating it.
 //  - 0x0100 from a "NumWorks Calculator", with external flash and its RAM at 0x20000000 (not the N0120's): an N0110 or
 //    N0115 on outdated firmware, { limited: 'outdated' }: the user says which (it's on the back) and may update it.
 //  - 0x0100 otherwise (no descriptor, a fork's name, the N0120's RAM): update it on NumWorks' site first.
 //  - another number: a model this page doesn't know.
 //   detectModel({ usbVersion, productName, serialNumber, layouts })
-//     -> { model } | { model: 'N0100', limited: 'n0100' } | { limited: 'outdated' } | { refuse: 'calc.updateFirst' | ... }
+//     -> { model } | { limited: 'outdated' } | { refuse: 'calc.n0100' | 'calc.updateFirst' | ... }
 
 export const MODELS = ['N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930', 'N0200'];
 const BY_BCD = { '1.1.0': 'N0110', '1.1.5': 'N0115', '1.2.0': 'N0120', '2.0.0': 'N0200' };
@@ -33,7 +33,7 @@ export function detectModel({ usbVersion = null, productName = '', serialNumber 
   if (model === 'N0120' && serialNumber === PORTUGAL_PROTOTYPE_SERIAL) model = 'N0120_PORTUGAL_PROTOTYPE_20210930';
   if (model) return { model };
   const internal = size(layouts, 0x08000000, 0x080fffff), external = size(layouts, 0x90000000, 0x9fffffff);
-  if (internal >= 0x100000 && !external) return { model: 'N0100', limited: 'n0100' };
+  if (internal >= 0x100000 && !external) return { refuse: 'calc.n0100' };
   const n0120Ram = size(layouts, 0x24000000, 0x24ffffff) > 0;
   if (trusted && bcd === '1.0.0' && external && !n0120Ram) return { limited: 'outdated' };
   if (!trusted || bcd === '1.0.0' || !bcd) return { refuse: 'calc.updateFirst' };

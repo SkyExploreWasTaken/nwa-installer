@@ -200,7 +200,7 @@ export default {
   'err.numplay.maxCarts': 'NumPico contient {max} cartouches au maximum',
 
   // ---- erreurs de lib/ (codes d'InstallerError)
-  'err.calc.n0100': 'La N0100 n’est pas prise en charge par cet installateur.',
+  'err.calc.n0100': 'La N0100 est trop ancienne pour cet installateur : elle n’a pas de place pour les applis .nwa, et NumWorks a cessé de la mettre à jour, donc cet installateur ne peut rien faire avec.',
   'err.calc.updateFirst': 'Cette calculatrice utilise un logiciel ancien ou non officiel qui n’indique pas son modèle. Mettez-la d’abord à jour sur le site officiel de NumWorks, my.numworks.com/devices/upgrade, puis reconnectez-la.',
   'err.calc.unknownModel': 'Ce modèle de calculatrice (version USB {bcd}) n’est pas pris en charge par cet installateur.',
   'err.calc.tooOld': 'Le logiciel de cette calculatrice n’est pas pris en charge (Epsilon 15 ou plus ancien, ou une version sans le bootloader de NumWorks). Installez l’Epsilon officiel depuis my.numworks.com/devices/upgrade, puis reconnectez-la.',
@@ -283,11 +283,13 @@ export default {
   'err.fw.cacheConflict': 'NumWorks a envoyé pour {model} {version} d’autres octets que la copie enregistrée sur cet ordinateur : la copie enregistrée est gardée',
   'err.numplay.hash': 'Le fichier {file} de NumPlay ne correspond pas à son empreinte épinglée : refusé',
   // ---- calculatrices à moitié prises en charge (lib/gate.js) et mode test (lib/simulate.js)
-  'warn.n0100.title': 'Cette calculatrice n’est pas vraiment prise en charge',
-  'warn.n0100.body': 'La N0100 est trop ancienne : cet outil ne la prend pas vraiment en charge, et NumWorks elle-même a cessé de mettre à jour la N0100. Cette page ne met jamais à jour son logiciel et ne le propose jamais.',
+  'warn.n0100.title': 'La N0100 ne peut pas être utilisée avec cet outil',
+  'warn.n0100.body': 'Ce modèle est trop ancien : il n’a pas de place pour les applis .nwa, et NumWorks elle-même a cessé de mettre à jour la N0100, donc cet outil ne peut rien faire avec.',
+  'warn.ok': 'OK',
   'warn.outdated.title': 'Le logiciel de cette calculatrice n’est pas vraiment pris en charge',
-  'warn.outdated.body': 'Vous avez ignoré la mise à jour : son firmware est obsolète, et cet outil ne le prend pas vraiment en charge. Rien n’a été écrit sur la calculatrice. Pour utiliser cet installateur, reconnectez-la et mettez-la à jour, ou mettez-la à jour sur le site de NumWorks.',
-  'model.n0100': 'N0100 (trop ancienne, pas vraiment prise en charge)',
+  'warn.outdated.body': 'Vous avez ignoré la mise à jour : son firmware est obsolète, et cet outil ne le prend pas vraiment en charge. Rien n’a été écrit sur la calculatrice. Appuyez sur OK pour continuer : ce qui ne peut pas marcher avec ce firmware le dira. Pour la mettre à jour plus tard, reconnectez-la.',
+  'limited.why.outdated': 'son firmware obsolète n’indique pas où sont ses applis et ses fichiers',
+  'apps.unavailable': 'Indisponible sur cette calculatrice : {why}.',
   'model.outdated': 'N0110 ou N0115 (firmware obsolète)',
   'od.title': 'Mettre à jour le logiciel de la calculatrice',
   'od.sub': 'Le firmware de cette calculatrice est obsolète. Rien n’est mis à jour sans vous : choisissez son modèle, puis une version, ou ignorez.',
@@ -313,6 +315,8 @@ export default {
   'progress.simulating': 'Simulation de la mise à jour… {pct} %',
   'err.calc.n0100.noFlash': 'La N0100 est trop ancienne : cet installateur ne met jamais à jour son firmware.',
   'err.gate.badModel': 'Choisissez N0110 ou N0115',
+  'err.limited.outdated': 'Impossible avec le firmware obsolète de cette calculatrice : il n’indique pas où sont ses applis et ses fichiers. Reconnectez-la et mettez-la d’abord à jour.',
+  'err.limited.outdatedFw': 'Le firmware de cette calculatrice est obsolète et son modèle inconnu : reconnectez-la, choisissez son modèle et une version, puis confirmez.',
   'err.sim.noWrite': 'Simulation : rien n’est jamais écrit',
   'err.sim.unknown': 'Simulation inconnue : {id}',
 };

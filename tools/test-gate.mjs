@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Tests for the half-supported calculators (public/lib/gate.js), the TEST MODE (public/lib/simulate.js) and the one gate
 // for every developer feature (public/lib/env.js, fed by server.js from NODE_ENV). No network, no calculator:
-//  - the N0100: limited, nothing read from it, never any firmware (assertFirmwareAllowed)
+//  - the N0100: refused (refusal screen, no OK), nothing read from it, never any firmware (assertFirmwareAllowed)
 //  - an N0110/N0115 on outdated firmware: model asked, every cached version listed oldest first with the oldest picked,
-//    nothing flashed before an explicit confirm of the version shown, then exactly that one; skipping never flashes
+//    nothing flashed before an explicit confirm of the version shown, then exactly that one; skipping never flashes,
+//    shows the warning once per connection, and after its OK the normal page, where what can't work says so
 //  - Epsilon 16+, the N0120, the Portugal prototype and the N0200: as before
 //  - EN and FR: every new string in both
 //  - NODE_ENV=production: ?mock, ?debug and ?debug&simulate=... ignored, the mock and simulation files not served;
@@ -20,7 +21,7 @@ const pub = (...p) => path.join(repo, 'public', ...p);
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-const { OutdatedFlow, OUTDATED_MODELS, assertFirmwareAllowed, cachedVersions, pickFlasher } = await import('../public/lib/gate.js');
+const { OutdatedFlow, OUTDATED_MODELS, assertFirmwareAllowed, cachedVersions, pickFlasher, limitedView, limitedActionError, limitedFirmwareError } = await import('../public/lib/gate.js');
 const { detectModel, usbVersionOf } = await import('../public/lib/model.js');
 const { readInfo } = await import('../public/lib/calc.js');
 const { simulatedDevice, simulatedFlash, simulatedModel, SIMULATED_IDS, SIMULATED_VERSIONS } = await import('../public/lib/simulate.js');
@@ -60,12 +61,10 @@ function newFlow(cache = CACHE) {
 }
 
 // ------------------------------------------------------------------ the N0100
-test('N0100: recognised but limited, nothing read from it, nothing written', async () => {
-  assert.deepEqual(detect(usbDev(0x0100), MEM.N0100), { model: 'N0100', limited: 'n0100' });
+test('N0100: refused when it connects, with its own reason; nothing read or written', async () => {
+  assert.deepEqual(detect(usbDev(0x0100), MEM.N0100), { refuse: 'calc.n0100' });
   const d = spyDfu(usbDev(0x0100), MEM.N0100);
-  const info = await readInfo(d);
-  assert.equal(info.limited, 'n0100');
-  assert.equal(info.model, 'N0100');
+  await assert.rejects(readInfo(d), (e) => e.code === 'calc.n0100' && /no storage for \.nwa apps/.test(e.message) && /stopped updating/.test(e.message));
   assert.equal(d.reads.length + d.writes.length, 0, 'not even read');
 });
 
@@ -86,12 +85,13 @@ test('N0100: firmware is never allowed, whatever asks (logic guard, not just the
   assert.deepEqual(flashed, []);
 });
 
-test('N0100: the page shows the big warning and has no firmware path for it', () => {
+test('N0100: the page shows the refusal screen (no OK) and has no firmware path for it', () => {
   const app = fs.readFileSync(pub('app.js'), 'utf8'), html = fs.readFileSync(pub('index.html'), 'utf8');
   assert.match(html, /<main>\s*<div id="big-warning" class="big-warning" role="alert" hidden>/, 'the banner is the first thing in the flow');
-  assert.match(app, /st\.info\?\.limited === 'n0100' \? 'n0100'/, 'shown for the N0100');
-  assert.match(app, /const on = !!st\.info, full = on && !st\.info\.limited;\s*\$\('#s-apps'\)\.hidden = \$\('#s-new'\)\.hidden = \$\('#s-fw'\)\.hidden = !full;/, 'firmware section hidden');
-  assert.match(app, /if \(!st\.info \|\| st\.info\.limited\) return;\s*assertFirmwareAllowed\(st\.info\.model\);/, 'Check for updates guarded');
+  assert.match(app, /if \(e\.code === 'calc\.n0100'\) \{ st\.refused = 'n0100';/, 'a refused N0100 sets the refusal screen');
+  assert.match(app, /const which = st\.refused \|\| limitedView\(/, 'shown first');
+  assert.match(app, /\$\('#big-warning-ok'\)\.hidden = which !== 'outdated';/, 'no OK on the refusal');
+  assert.match(app, /if \(!st\.info\) return;\s*assertFirmwareAllowed\(st\.info\.model\);/, 'Check for updates guarded');
   assert.match(app, /if \(!i \|\| i\.limited \|\| !p\?\.available\) return;\s*try \{ assertFirmwareAllowed\(i\.model\); \}/, 'Update guarded');
   assert.match(app, /async function flashOutdated\(model, option\) \{[^]*?assertFirmwareAllowed\(model\);/, 'the outdated flasher guarded');
   const css = fs.readFileSync(pub('style.css'), 'utf8');
@@ -190,7 +190,7 @@ test('outdated: Skip update shows the same very big warning and never flashes', 
   assert.deepEqual(fresh.flashed, []);
   // the page: the same banner element, its outdated text, after a skip
   const app = fs.readFileSync(pub('app.js'), 'utf8');
-  assert.match(app, /: st\.outdated\?\.step === 'skipped' \? 'outdated' : null;\s*\$\('#big-warning'\)\.hidden = !which;/);
+  assert.match(app, /const which = st\.refused \|\| limitedView\(\{ connected: !!st\.info, limited: st\.info\?\.limited, outdatedStep: st\.outdated\?\.step, dismissed: st\.warned \}\)\.warning;/);
   assert.match(fs.readFileSync(pub('index.html'), 'utf8'), /<button id="od-skip"[^>]*data-i18n="od\.skip">Skip update<\/button>/);
 });
 
@@ -204,6 +204,42 @@ test('outdated: the page asks for the model with the back-of-the-calculator hint
   assert.ok(!/\.confirm\(/.test(app.replace(/f\.confirm\(version\)/, '')), 'no other path to the flow\'s confirm');
 });
 
+test('skipped: the warning once, OK dismisses it, then the normal page; a new connection warns again', () => {
+  const v = (step, dismissed) => limitedView({ connected: true, limited: 'outdated', outdatedStep: step, dismissed });
+  assert.deepEqual(v('model', false), { warning: null, normal: false, outdatedFlow: true }, 'before skipping: the update step');
+  assert.deepEqual(v('version', false), { warning: null, normal: false, outdatedFlow: true });
+  assert.deepEqual(v('skipped', false), { warning: 'outdated', normal: false, outdatedFlow: false }, 'skipped: the warning');
+  assert.deepEqual(v('skipped', true), { warning: null, normal: true, outdatedFlow: false }, 'after OK: the normal page, no warning');
+  assert.deepEqual(limitedView({ connected: true }), { warning: null, normal: true, outdatedFlow: false }, 'a calculator on recent firmware: as before');
+  assert.deepEqual(limitedView({ connected: false }), { warning: null, normal: false, outdatedFlow: false });
+  const app = fs.readFileSync(pub('app.js'), 'utf8'), html = fs.readFileSync(pub('index.html'), 'utf8');
+  assert.match(html, /<button id="big-warning-ok"[^>]*data-i18n="warn\.ok">OK<\/button>/);
+  assert.match(app, /\$\('#big-warning-ok'\)\.addEventListener\('click', \(\) => \{\s*st\.warned = true;/, 'OK dismisses');
+  assert.match(app, /st\.warned = false;\s*\/\/ \(the very big warning: once per connection/, 'reset on each connection');
+  assert.match(app, /const full = view\.normal;\s*\$\('#s-apps'\)\.hidden = \$\('#s-new'\)\.hidden = \$\('#s-fw'\)\.hidden = !full;/, 'normal sections follow the view');
+});
+
+test('skipped: after OK, what can\'t work on that firmware says so; firmware still only through the confirm step', async () => {
+  assert.equal(limitedActionError().code, 'limited.outdated');
+  assert.equal(limitedFirmwareError('outdated', null).code, 'limited.outdatedFw', 'Check for updates: its own step only');
+  assert.throws(() => limitedFirmwareError('outdated', 'N0100'), (e) => e.code === 'calc.n0100.noFlash', 'and never the N0100');
+  assert.equal(limitedFirmwareError(null, 'N0120'), null);
+  // a skipped flow never flashes, OK or not
+  const { flow, flashed } = newFlow();
+  await flow.chooseModel('N0110');
+  flow.skip();
+  assert.equal(await flow.confirm(flow.selected), false);
+  assert.deepEqual(flashed, []);
+  const app = fs.readFileSync(pub('app.js'), 'utf8');
+  for (const [what, re] of [
+    ['Back up apps', /\$\('#backup-apps'\)\.addEventListener\('click', \(\) => job\('backup', async \(\) => \{\s*if \(st\.info\.limited\) throw limitedActionError/],
+    ['Back up files', /\$\('#backup-files'\)\.addEventListener\('click', \(\) => job\('backup', async \(\) => \{\s*if \(st\.info\.limited\) throw limitedActionError/],
+    ['Restore', /if \(!f\) return;\s*if \(st\.info\?\.limited\) \{ failLimited\('restore'\); return; \}/],
+    ['Install', /\$\('#install'\)\.addEventListener\('click', async \(\) => \{\s*if \(st\.info\?\.limited\) \{ failLimited\('install'\); return; \}/],
+    ['Check for updates', /if \(st\.info\.limited\) throw limitedFirmwareError\(st\.info\.limited, st\.info\.model\);/],
+  ]) assert.match(app, re, what);
+});
+
 // ------------------------------------------------------------------ everything else as before
 test('unchanged: Epsilon 16+ N0110/N0115/N0120, the Portugal prototype and the N0200 are not limited', () => {
   for (const [model, bcd, mem] of [['N0110', 0x0110, MEM.N0110], ['N0115', 0x0115, MEM.N0110], ['N0120', 0x0120, MEM.N0120]]) assert.deepEqual(detect(usbDev(bcd), mem), { model });
@@ -215,9 +251,9 @@ test('unchanged: Epsilon 16+ N0110/N0115/N0120, the Portugal prototype and the N
 // ------------------------------------------------------------------ EN / FR
 test('i18n: every new string in English and French, translated', async () => {
   const en = (await import('../public/i18n/en.js')).default, fr = (await import('../public/i18n/fr.js')).default;
-  const keys = Object.keys(en).filter((k) => /^(warn\.|od\.|sim\.|model\.(n0100|outdated)$|progress\.simulating$|err\.(calc\.n0100\.noFlash|gate\.|sim\.))/.test(k));
+  const keys = Object.keys(en).filter((k) => /^(warn\.|od\.|sim\.|limited\.|apps\.unavailable$|model\.outdated$|progress\.simulating$|err\.(calc\.n0100|gate\.|sim\.|limited\.))/.test(k));
   assert.ok(keys.length >= 30, 'found ' + keys.length);
-  const same = ['od.opt', 'sim.what.n0100'];  // (only a version or a model number)
+  const same = ['od.opt', 'sim.what.n0100', 'warn.ok'];  // (only a version or a model number)
   for (const k of keys) {
     assert.ok(typeof fr[k] === 'string' && fr[k].trim(), 'fr: ' + k);
     if (!same.includes(k)) assert.notEqual(fr[k], en[k], 'fr translated: ' + k);
@@ -225,15 +261,14 @@ test('i18n: every new string in English and French, translated', async () => {
   for (const k of Object.keys(fr)) assert.ok(k in en, 'en: ' + k);
   assert.equal(fr['od.hint'], 'Le modèle exact est indiqué au dos de la calculatrice (par ex. N0110 ou N0115).');
   for (const k of ['warn.n0100.body', 'warn.outdated.body']) assert.ok(!/'/.test(fr[k]), 'French apostrophes as in the rest of fr.js: ' + k);
-  assert.match(en['warn.n0100.body'], /NumWorks itself has stopped updating the N0100/);
-  assert.match(fr['warn.n0100.body'], /NumWorks elle-même a cessé de mettre à jour la N0100/);
+  assert.match(en['warn.n0100.body'], /too old: it has no storage for \.nwa apps, and NumWorks itself has stopped updating the N0100/);
+  assert.match(fr['warn.n0100.body'], /trop ancien : il n’a pas de place pour les applis \.nwa, et NumWorks elle-même a cessé de mettre à jour la N0100/);
 });
 
 // ------------------------------------------------------------------ TEST MODE (simulate.js)
 test('simulation: each simulated calculator reaches its screen', async () => {
   assert.deepEqual(SIMULATED_IDS, SIMULATIONS);
-  const n0100 = await readInfo(simulatedDevice('n0100'));
-  assert.equal(n0100.limited, 'n0100');
+  await assert.rejects(readInfo(simulatedDevice('n0100')), (e) => e.code === 'calc.n0100', 'the N0100: its refusal');
   for (const id of ['n0110-old', 'n0115-old']) {
     const i = await readInfo(simulatedDevice(id));
     assert.equal(i.limited, 'outdated', id);

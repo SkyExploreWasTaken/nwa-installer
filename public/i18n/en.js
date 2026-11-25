@@ -198,7 +198,7 @@ export default {
   'err.numplay.maxCarts': 'NumPico holds {max} carts at most',
 
   // ---- errors from lib/ (InstallerError codes; each English text matches the error's own message)
-  'err.calc.n0100': "The N0100 isn't supported by this installer.",
+  'err.calc.n0100': "The N0100 is too old for this installer: it has no storage for .nwa apps, and NumWorks has stopped updating it, so this installer can't do anything with it.",
   'err.calc.updateFirst': "This calculator runs old or unofficial software that doesn't say which model it is. Update it first on NumWorks' official site, my.numworks.com/devices/upgrade, then connect again.",
   'err.calc.unknownModel': "This calculator model (USB version {bcd}) isn't supported by this installer.",
   'err.calc.tooOld': "This calculator's software isn't supported (Epsilon 15 or older, or a version without NumWorks' bootloader). Install official Epsilon from my.numworks.com/devices/upgrade, then connect again.",
@@ -281,11 +281,13 @@ export default {
   'err.fw.cacheConflict': 'NumWorks sent different bytes for {model} {version} than the copy saved on this computer: the saved copy is kept',
   'err.numplay.hash': "NumPlay's {file} does not match its pinned checksum: refused",
   // ---- half-supported calculators (lib/gate.js) and the test mode (lib/simulate.js)
-  'warn.n0100.title': 'This calculator is not really supported',
-  'warn.n0100.body': "The N0100 is too old: this tool doesn't really support it, and NumWorks itself has stopped updating the N0100. This page never updates its software and never offers to.",
+  'warn.n0100.title': "The N0100 can't be used with this tool",
+  'warn.n0100.body': 'This model is too old: it has no storage for .nwa apps, and NumWorks itself has stopped updating the N0100, so this tool cannot do anything with it.',
+  'warn.ok': 'OK',
   'warn.outdated.title': "This calculator's software is not really supported",
-  'warn.outdated.body': "You skipped the update: its firmware is outdated, and this tool doesn't really support it. Nothing was written to the calculator. To use this installer, connect again and update it, or update it on NumWorks' site.",
-  'model.n0100': 'N0100 (too old, not really supported)',
+  'warn.outdated.body': "You skipped the update: its firmware is outdated, and this tool doesn't really support it. Nothing was written to the calculator. Press OK to go on: what can't work with this firmware will say so. To update it later, connect again.",
+  'limited.why.outdated': "its outdated firmware doesn't say where its apps and files are",
+  'apps.unavailable': 'Not available on this calculator: {why}.',
   'model.outdated': 'N0110 or N0115 (outdated firmware)',
   'od.title': "Update the calculator's software",
   'od.sub': "This calculator's firmware is outdated. Nothing is updated without you: pick its model, then a version, or skip.",
@@ -311,6 +313,8 @@ export default {
   'progress.simulating': 'Simulating the update… {pct}%',
   'err.calc.n0100.noFlash': 'The N0100 is too old: this installer never updates its firmware.',
   'err.gate.badModel': 'Pick N0110 or N0115',
+  'err.limited.outdated': "Not possible with this calculator's outdated firmware: it doesn't say where its apps and files are. Connect again and update it first.",
+  'err.limited.outdatedFw': "This calculator's firmware is outdated and its model unknown: connect again, pick its model and a version, and confirm.",
   'err.sim.noWrite': 'Simulation: nothing is ever written',
   'err.sim.unknown': 'No such simulation: {id}',
 };

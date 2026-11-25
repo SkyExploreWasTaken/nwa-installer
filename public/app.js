@@ -13,14 +13,14 @@ import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
-import { OutdatedFlow, assertFirmwareAllowed, pickFlasher } from './lib/gate.js';
+import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, limitedActionError, limitedFirmwareError } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 applyDom();
 initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null };
+const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null, warned: false, refused: null };
 const T = (key, vars) => () => t(key, vars);  // a text to draw now and again on a language change
 // an error the page itself throws, with a code for its text (err.<code>) and the English message for the log
 const uiError = (code, params, message, cause) => new InstallerError(code, params, message, cause ? { cause } : undefined);
@@ -109,6 +109,8 @@ async function connect(dev) {
   if (st.dfu) await st.dfu.close();
   st.dev = dev;
   st.outdated = null;
+  st.refused = null;
+  st.warned = false;  // (the very big warning: once per connection, until its OK)
   st.dfu = SIM ? sim.simulatedDevice(SIM) : MOCK ? await (await import('./dev/mockdfu.js')).mockDevice() : new Dfu(dev);
   try {
     await st.dfu.open();
@@ -119,6 +121,8 @@ async function connect(dev) {
     // let go of the calculator, so a new try (or another program) can have it
     await st.dfu.close().catch(() => {});
     st.dev = st.dfu = st.info = st.scan = null;
+    // the N0100: the refusal screen (the very big banner, without OK: there's nothing to go on to)
+    if (e.code === 'calc.n0100') { st.refused = 'n0100'; log('Refused: N0100 (too old, no storage for .nwa apps, no longer updated by NumWorks)'); }
     // (software this page can't work with: its own message, without "unplug and connect again", which won't help)
     if (/^calc\.(tooOld|n0100|updateFirst|unknownModel|unofficial\.)/.test(e.code || '')) throw e;
     throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
@@ -131,16 +135,15 @@ async function connect(dev) {
   loadTools().catch((e) => log('Linker: ' + e.message));
 }
 
-// the N0100, or an N0110/N0115 on outdated firmware (lib/gate.js): nothing else read, only what gate.js allows
+// an N0110/N0115 on outdated firmware (lib/gate.js): nothing else read, only what gate.js allows
 function connectLimited(dev) {
   const i = st.info;
   log(`DFU memories: ${st.dfu.layouts.map((l) => l.name).join(' | ')}`);
-  if (i.limited === 'n0100') log('Connected: N0100. Too old, not really supported: no firmware is ever offered or written to it.');
-  else {
-    log('Connected: an N0110 or N0115 on outdated firmware (USB version 1.0.0). Nothing is updated until a model and version are picked and confirmed.');
-    st.outdated = new OutdatedFlow({ loadInfo: loadOutdatedInfo, flash: outdatedFlasher, onChange: () => render() });
-  }
-  status(T('connect.ok', { name: dev?.productName || 'NumWorks', model: modelLabel(i.model) }), i.limited === 'n0100' ? 'warn' : 'ok');
+  log('Connected: an N0110 or N0115 on outdated firmware (USB version 1.0.0). Nothing is updated until a model and version are picked and confirmed.');
+  st.outdated = new OutdatedFlow({ loadInfo: loadOutdatedInfo, flash: outdatedFlasher, onChange: () => render() });
+  st.scan = { apps: [], freeStart: 0 };
+  st.files = null;
+  status(T('connect.ok', { name: dev?.productName || 'NumWorks', model: modelLabel(i.model) }), 'ok');
 }
 
 async function rescan() {
@@ -161,10 +164,12 @@ navigator.usb?.addEventListener('disconnect', (e) => {
 });
 
 // how a model is named on the page (the Portugal prototype has a long name)
-const modelLabel = (m) => (!m ? t('model.outdated') : m === 'N0100' ? t('model.n0100') : m.startsWith('N0120_PORTUGAL') ? t('model.portugal') : m);
+const modelLabel = (m) => (!m ? t('model.outdated') : m.startsWith('N0120_PORTUGAL') ? t('model.portugal') : m);
 
 // ------------------------------------------------------------------ backups and restore
+// (a limited calculator, lib/gate.js: these say why they can't, nothing read or written)
 $('#backup-apps').addEventListener('click', () => job('backup', async () => {
+  if (st.info.limited) throw limitedActionError(st.info.limited);
   const i = st.info, end = Math.min(st.scan.freeStart + SECTOR, i.nwagraOk ? i.nwagraEnd : i.appsEnd);
   log(`Reading ${end - i.appsStart} bytes of apps…`);
   const data = await st.dfu.read(i.appsStart, end - i.appsStart, (p) => progress(p, 'progress.readingApps'));
@@ -174,6 +179,7 @@ $('#backup-apps').addEventListener('click', () => job('backup', async () => {
 }));
 
 $('#backup-files').addEventListener('click', () => job('backup', async () => {
+  if (st.info.limited) throw limitedActionError(st.info.limited);
   const raw = await st.dfu.read(st.info.storageAddress, st.info.storageSize);
   download(raw, `numworks-files-${stamp()}.bin`);
   log('Saved the files backup (' + (parseStorage(raw)?.files.length || 0) + ' files)');
@@ -183,6 +189,7 @@ $('#restore').addEventListener('change', async (ev) => {
   const f = ev.target.files[0];
   ev.target.value = '';
   if (!f) return;
+  if (st.info?.limited) { failLimited('restore'); return; }
   const data = new Uint8Array(await f.arrayBuffer());
   const i = st.info;
   const m = /0x([0-9a-f]{8})/i.exec(f.name);
@@ -198,6 +205,12 @@ $('#restore').addEventListener('change', async (ev) => {
     await finish();
   });
 });
+
+function failLimited(name) {
+  const e = limitedActionError(st.info.limited);
+  log(name + ' failed: ' + e.message);
+  status(() => t('fail.' + name, { msg: errText(e) }), 'warn');
+}
 
 // ------------------------------------------------------------------ the apps to install
 $('#pick').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
@@ -220,7 +233,7 @@ async function addFiles(list, extra = {}) {
 async function inspect(item) {
   try {
     await loadTools();
-    const i = st.info;
+    const i = st.info?.limited ? null : st.info;
     const mem = i ? { flashStart: i.appsStart, flashLength: 0x800000, ramStart: i.appsRamStart, ramLength: i.appsRamEnd - i.appsRamStart, trampoline: i.trampoline }
       : { flashStart: 0x90200000, flashLength: 0x600000, ramStart: 0x20000000, ramLength: 0x40000, trampoline: 0x90010030 };
     const r = await inspectNwa(item.nwa, mem, item.data);
@@ -251,7 +264,9 @@ function layout() {
 }
 
 function render() {
-  const on = !!st.info, full = on && !st.info.limited;
+  const on = !!st.info;
+  const view = limitedView({ connected: on, limited: st.info?.limited, outdatedStep: st.outdated?.step, dismissed: st.warned });
+  const full = view.normal;
   $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !full;
   $('#info').hidden = !on;
   $('#connect').textContent = t(on ? 'connect.again' : 'connect.button');
@@ -266,6 +281,7 @@ function render() {
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
   add(t('info.model'), modelLabel(i.model));
   if (!full) return;
+  if (i.limited) { renderLimited(); return; }
   renderFirmware();
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
@@ -292,28 +308,7 @@ function render() {
   $('#keep').disabled = st.busy || !st.scan.apps.length;
   $('#keep').closest('.opt').classList.toggle('disabled', !st.scan.apps.length);
 
-  const q = $('#queue');
-  q.textContent = '';
-  if (!st.queue.length) q.append(el('li', 'empty', t('queue.empty')));
-  st.queue.forEach((item, n) => {
-    const li = el('li');
-    li.append(el('span', 'badge new', (item.name || '?').slice(0, 1).toUpperCase()), el('span', 'name', item.name));
-    if (item.error) li.append(el('span', 'warn', errText(item.error).split('\n')[0]));
-    else if (item.needsData) {
-      const lab = el('label', 'link', t('queue.addData'));
-      const inp = el('input'); inp.type = 'file'; inp.hidden = true;
-      inp.addEventListener('change', async () => { item.data = new Uint8Array(await inp.files[0].arrayBuffer()); item.dataName = inp.files[0].name; inspect(item); });
-      lab.append(inp);
-      li.append(el('span', 'warn', t('queue.needsData')), lab);
-    } else li.append(el('span', 'meta', !item.size ? t('queue.reading')
-      : item.dataName ? t('queue.withData', { size: sectors(item.size), file: item.dataName }) : kb(sectors(item.size))));
-    const up = el('button', 'x', '↑'); up.title = t('queue.up'); up.disabled = n === 0 || st.busy;
-    up.addEventListener('click', () => { st.queue.splice(n - 1, 0, st.queue.splice(n, 1)[0]); render(); });
-    const x = el('button', 'x', '✕'); x.title = t('queue.remove'); x.disabled = st.busy;
-    x.addEventListener('click', () => { st.queue.splice(n, 1); render(); });
-    li.append(up, x);
-    q.append(li);
-  });
+  drawQueue();
 
   const L = layout();
   const bar = $('#bar');
@@ -340,6 +335,55 @@ function render() {
   numplay.render();
 }
 
+function drawQueue() {
+  const q = $('#queue');
+  q.textContent = '';
+  if (!st.queue.length) q.append(el('li', 'empty', t('queue.empty')));
+  st.queue.forEach((item, n) => {
+    const li = el('li');
+    li.append(el('span', 'badge new', (item.name || '?').slice(0, 1).toUpperCase()), el('span', 'name', item.name));
+    if (item.error) li.append(el('span', 'warn', errText(item.error).split('\n')[0]));
+    else if (item.needsData) {
+      const lab = el('label', 'link', t('queue.addData'));
+      const inp = el('input'); inp.type = 'file'; inp.hidden = true;
+      inp.addEventListener('change', async () => { item.data = new Uint8Array(await inp.files[0].arrayBuffer()); item.dataName = inp.files[0].name; inspect(item); });
+      lab.append(inp);
+      li.append(el('span', 'warn', t('queue.needsData')), lab);
+    } else li.append(el('span', 'meta', !item.size ? t('queue.reading')
+      : item.dataName ? t('queue.withData', { size: sectors(item.size), file: item.dataName }) : kb(sectors(item.size))));
+    const up = el('button', 'x', '↑'); up.title = t('queue.up'); up.disabled = n === 0 || st.busy;
+    up.addEventListener('click', () => { st.queue.splice(n - 1, 0, st.queue.splice(n, 1)[0]); render(); });
+    const x = el('button', 'x', '✕'); x.title = t('queue.remove'); x.disabled = st.busy;
+    x.addEventListener('click', () => { st.queue.splice(n, 1); render(); });
+    li.append(up, x);
+    q.append(li);
+  });
+}
+
+// a limited calculator once its warning is dismissed (lib/gate.js): the usual sections, saying what can't work on it
+function renderLimited() {
+  const why = t('limited.why.outdated');
+  st.fw = null;
+  $('#fw-box').hidden = true;
+  const ul = $('#installed');
+  ul.textContent = '';
+  ul.append(el('li', 'empty', t('apps.unavailable', { why })));
+  $('#files').textContent = '';
+  const nw = $('#nwagra');
+  nw.disabled = true;
+  nw.checked = false;
+  $('#nwagra-opt').classList.add('disabled');
+  $('#nwagra-note').textContent = t('opt.nwagra.no');
+  $('#keep').disabled = true;
+  $('#keep').closest('.opt').classList.add('disabled');
+  drawQueue();
+  $('#bar').textContent = '';
+  $('#legend').textContent = '';
+  $('#plan').textContent = st.queue.length ? t('apps.unavailable', { why }) : '';
+  $('#install').disabled = st.busy || !st.queue.length;  // (clicking says why it can't)
+  numplay.render();
+}
+
 // ------------------------------------------------------------------ installing
 // text: T(...), so an open dialog follows a language change
 function confirmDialog(text) {
@@ -354,6 +398,7 @@ function confirmDialog(text) {
 }
 
 $('#install').addEventListener('click', async () => {
+  if (st.info?.limited) { failLimited('install'); return; }
   const i = st.info, L = layout();
   const keep = $('#keep').checked && st.scan.apps.length > 0;
   let plan;
@@ -398,8 +443,9 @@ const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
 $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
-  if (!st.info || st.info.limited) return;
+  if (!st.info) return;
   assertFirmwareAllowed(st.info.model);
+  if (st.info.limited) throw limitedFirmwareError(st.info.limited, st.info.model);
   // (a guessed model could be the wrong one: an N0115 can look like an N0110, and its firmware is not the same)
   const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup(T('fw.needServer')); return; }
@@ -560,13 +606,15 @@ $('#fw-install').addEventListener('click', async () => {
 });
 
 // ------------------------------------------------------------------ half-supported calculators (lib/gate.js)
-// The very big warning, at the top of the page: the N0100 always; an outdated N0110/N0115 once its update is skipped.
+// The very big banner at the top of the page: the N0100's refusal (no OK: nothing to go on to), or, once per
+// connection until its OK, the warning for an outdated N0110/N0115 whose update was skipped.
 function drawBigWarning() {
-  const which = st.info?.limited === 'n0100' ? 'n0100' : st.outdated?.step === 'skipped' ? 'outdated' : null;
+  const which = st.refused || limitedView({ connected: !!st.info, limited: st.info?.limited, outdatedStep: st.outdated?.step, dismissed: st.warned }).warning;
   $('#big-warning').hidden = !which;
   if (!which) return;
   $('#big-warning-title').textContent = t(`warn.${which}.title`);
   $('#big-warning-text').textContent = t(`warn.${which}.body`);
+  $('#big-warning-ok').hidden = which !== 'outdated';
 }
 
 function drawSimBadge() {
@@ -620,7 +668,7 @@ const outdatedFlasher = pickFlasher({ simulate: SIM, real: flashOutdated,
 
 function drawOutdated() {
   const f = st.outdated;
-  $('#s-outdated').hidden = !f || f.step === 'skipped';
+  $('#s-outdated').hidden = !limitedView({ connected: !!st.info, limited: st.info?.limited, outdatedStep: f?.step }).outdatedFlow;
   if (!f) return;
   const locked = st.busy || f.step === 'flashing' || f.step === 'done';
   for (const b of document.querySelectorAll('.od-pick')) {
@@ -655,6 +703,12 @@ function drawOutdated() {
 for (const b of document.querySelectorAll('.od-pick')) b.addEventListener('click', () => {
   st.outdated?.chooseModel(b.dataset.model).catch((e) => log('Model: ' + e.message));
 });
+// OK on the very big warning: gone for this connection, and the page as for any calculator
+$('#big-warning-ok').addEventListener('click', () => {
+  st.warned = true;
+  log('Warning read (OK): the page as usual; what this calculator cannot do says so.');
+  render();
+});
 $('#od-version').addEventListener('change', (e) => st.outdated?.select(e.target.value));
 $('#od-skip').addEventListener('click', () => {
   if (!st.outdated?.skip()) return;
@@ -686,7 +740,7 @@ const numplay = initNumPlay({
   log,
   // the space a NumPlay can take: what the apps to install leave free (with the options as set), its own part aside
   free: () => {
-    if (!st.info) return null;
+    if (!st.info || st.info.limited) return null;
     const L = layout(), others = st.queue.filter((q) => !q.numplay).reduce((n, q) => n + (q.size ? sectors(q.size) : 0), 0);
     return L.total - L.kept - others;
   },

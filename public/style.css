@@ -271,6 +271,11 @@ dialog p { color: var(--muted); font-size: 14px; }
 .bw-icon { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
   font-size: 44px; font-weight: 900; background: #ffd400; color: #b00020; }
 
+/* its OK (the skipped-update warning only: the N0100's refusal has nothing to go on to) */
+.bw-ok { margin-top: 16px; font: inherit; font-size: 17px; font-weight: 800; padding: 10px 34px; border-radius: 10px;
+  border: 2px solid #1c1b1a; background: #ffd400; color: #1c1b1a; cursor: pointer; }
+.bw-ok:hover { background: #ffe14d; }
+
 /* an outdated N0110/N0115: which model, which version */
 .od-step { display: grid; gap: 8px; margin-bottom: 14px; }
 .od-models { display: flex; gap: 10px; flex-wrap: wrap; }

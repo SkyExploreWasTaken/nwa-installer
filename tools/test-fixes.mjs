@@ -292,8 +292,8 @@ test('model: N0110, N0115, N0120, the Portugal prototype and the N0200 from the 
   assert.deepEqual(detect(usbDev(0x0200, 'NumWorks Scientific Calculator'), []), { model: 'N0200' });
 });
 
-test('model: never a guess: the N0100 limited, an outdated N0110/N0115 asked, the rest refused', () => {
-  assert.deepEqual(detect(usbDev(0x0100), MEM.N0100), { model: 'N0100', limited: 'n0100' });
+test('model: never a guess: the N0100 refused, an outdated N0110/N0115 asked, the rest refused', () => {
+  assert.deepEqual(detect(usbDev(0x0100), MEM.N0100), { refuse: 'calc.n0100' });
   for (const m of ['N0110', 'N0115']) assert.deepEqual(detect(usbDev(0x0100), MEM[m]), { limited: 'outdated' }, m + ' on old software: which one is asked');
   assert.deepEqual(detect(usbDev(0x0100), MEM.N0120), { refuse: 'calc.updateFirst' }, 'the N0120 (its RAM) keeps the old rule');
   assert.deepEqual(detect(usbDev(0x0110, 'Upsilon Calculator'), MEM.N0110), { refuse: 'calc.updateFirst' }, 'a fork\'s number is not trusted');
@@ -301,10 +301,10 @@ test('model: never a guess: the N0100 limited, an outdated N0110/N0115 asked, th
   assert.deepEqual(detect(usbDev(0x0130), MEM.N0120), { refuse: 'calc.unknownModel', bcd: '1.3.0' });
 });
 
-test('model: readInfo refuses what it can\'t work with, with its own code; the N0100 and outdated firmware: limited', async () => {
+test('model: readInfo refuses what it can\'t work with, with its own code; outdated firmware: limited', async () => {
   const { readInfo } = await import('../public/lib/calc.js');
   const dfu = (dev, layouts) => ({ device: dev, layouts, read: async (a, n) => new Uint8Array(n).fill(0xff) });
-  assert.deepEqual(await readInfo(dfu(usbDev(0x0100), MEM.N0100)), { model: 'N0100', limited: 'n0100', serial: 'SER256' });
+  await assert.rejects(readInfo(dfu(usbDev(0x0100), MEM.N0100)), (e) => e.code === 'calc.n0100');
   assert.deepEqual(await readInfo(dfu(usbDev(0x0100), MEM.N0110)), { model: null, limited: 'outdated', serial: 'SER256' });
   await assert.rejects(readInfo(dfu(usbDev(0x0100), MEM.N0120)), (e) => e.code === 'calc.updateFirst' && /my\.numworks\.com\/devices\/upgrade/.test(e.message));
   await assert.rejects(readInfo(dfu(usbDev(0x0110), MEM.N0110)), (e) => e.code === 'calc.tooOld', 'no slot info: not supported');

@@ -96,7 +96,7 @@ public/
   lib/dfufile.js     NumWorks' firmware files (.dfu)
   lib/storage.js     the calculator's files
   vendor/            GNU ld and objcopy as WebAssembly; eadk.o (made by npm run setup)
-  lib/gate.js        the N0100 (warning only, never any firmware) and outdated N0110/N0115 (pick model, version, confirm or skip)
+  lib/gate.js        the N0100 (refused, never any firmware) and outdated N0110/N0115 (pick model, version, confirm or skip)
   lib/env.js         the one gate for ?mock, ?debug and ?debug&simulate=...: off when the server runs with NODE_ENV=production
   lib/simulate.js    TEST MODE: a simulated N0100 / outdated N0110 / outdated N0115 that never writes (not served in production)
   dev/mockdfu.js     a pretend calculator for testing the page (?mock)
@@ -131,8 +131,9 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 `npm start` (or serve.bat) serves http://localhost:8642/. Without `NODE_ENV=production` these developer URLs work:
 `?mock` (a pretend N0120), `?debug` (state on `window.nwaDebug`), and the TEST MODE, which simulates a calculator,
 shows a striped badge, and never touches USB (a confirmed update only moves a progress bar):
-- http://localhost:8642/?debug&simulate=n0100 : an N0100 (the very big warning)
-- http://localhost:8642/?debug&simulate=n0110-old : an N0110 on outdated firmware (pick the model, a version, confirm or skip)
+- http://localhost:8642/?debug&simulate=n0100 : an N0100 (its refusal screen)
+- http://localhost:8642/?debug&simulate=n0110-old : an N0110 on outdated firmware (pick the model, a version, confirm; or skip:
+  the warning, then OK and the usual page)
 - http://localhost:8642/?debug&simulate=n0115-old : the same for an N0115
 
 With `NODE_ENV=production` set in the server's environment (e.g. systemd `Environment=NODE_ENV=production`), server.js

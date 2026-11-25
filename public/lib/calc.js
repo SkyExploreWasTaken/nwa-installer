@@ -32,9 +32,10 @@ export async function readInfo(dfu) {
   if (productName === 'Upsilon Bootloader') unofficial(checkOfficial({ productName }));
   // the model, from the USB descriptor (model.js); a calculator this page can't work with is refused, saying why
   const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName, serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
-  // the N0100, or an N0110/N0115 on outdated firmware: nothing read (their memory isn't laid out as below), and the
-  // page only offers what gate.js allows: { model, limited }
-  if (m.limited === 'n0100') return { model: 'N0100', limited: 'n0100', serial: dfu.device?.serialNumber || null };
+  // the N0100: refused (no external flash, so no app area; no bootloader; NumWorks stopped updating it)
+  if (m.refuse === 'calc.n0100') throw new InstallerError('calc.n0100', {}, 'The N0100 is too old for this installer: it has no storage for .nwa apps, and NumWorks has stopped updating it, so this installer cannot do anything with it.');
+  // an N0110/N0115 on outdated firmware: nothing read (its memory isn't laid out as below), and the page only offers
+  // what gate.js allows: { model: null, limited: 'outdated' }
   if (m.limited === 'outdated') return { model: null, limited: 'outdated', serial: dfu.device?.serialNumber || null };
   if (m.refuse === 'calc.updateFirst') throw new InstallerError('calc.updateFirst', {}, 'This calculator runs old or unofficial software that does not say which model it is. Update it first on https://my.numworks.com/devices/upgrade, then connect again.');
   if (m.refuse) throw new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by this installer.');
