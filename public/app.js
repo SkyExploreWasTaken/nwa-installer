@@ -9,6 +9,7 @@ import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall } from './lib/install.js';
 import { parseStorage, buildStorage } from './lib/storage.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
+import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect } from './i18n/index.js';
 
@@ -19,7 +20,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null };
 const T = (key, vars) => () => t(key, vars);  // a text to draw now and again on a language change
 // an error the page itself throws, with a code for its text (err.<code>) and the English message for the log
-const uiError = (code, params, message, cause) => Object.assign(new Error(message, cause ? { cause } : undefined), { code, params });
+const uiError = (code, params, message, cause) => new InstallerError(code, params, message, cause ? { cause } : undefined);
 // an error the local server sent: { error, code?, params? }
 const serverError = (j, httpStatus) => j.code ? uiError(j.code, j.params || {}, j.error)
   : j.error ? new Error(j.error) : uiError('http', { status: httpStatus }, 'HTTP ' + httpStatus);

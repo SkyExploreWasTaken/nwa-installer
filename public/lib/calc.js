@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // What's on a NumWorks calculator (Epsilon 16 and later, N0110/N0115/N0120): its firmware headers and the
 // external apps in its app area. All of it read over DFU, nothing written.
+import { InstallerError } from './errors.js';
 export const SECTOR = 0x10000;            // apps start on 64 KB sectors
 export const FLASH_END = 0x90800000;
 export const SLOT_B = 0x90400000;      // the second copy of the software (its kernel header 8 bytes in)      // end of the 8 MB external flash
@@ -26,18 +27,18 @@ export async function readInfo(dfu) {
   // the bootloader leaves where the running slot's kernel and userland headers are at the start of RAM
   const slot = await dfu.read(info.ramStart, 16);
   if (!is(slot, 0, MAGIC.slot) || !is(slot, 12, MAGIC.slot)) {
-    throw new Error('This calculator\'s software is too old for external apps (no slot info). Update it to Epsilon 16 or later.');
+    throw new InstallerError('calc.tooOld', {}, 'This calculator\'s software is too old for external apps (no slot info). Update it to Epsilon 16 or later.');
   }
   info.kernelHeader = u32(slot, 4);
   info.userlandHeader = u32(slot, 8);
 
   const k = await dfu.read(info.kernelHeader, 24);
-  if (!is(k, 0, MAGIC.kernel)) throw new Error('The kernel header was not where it should be');
+  if (!is(k, 0, MAGIC.kernel)) throw new InstallerError('calc.noKernel', {}, 'The kernel header was not where it should be');
   info.version = cstr(k, 4, 8);
   info.patch = cstr(k, 12, 8);
 
   const u = await dfu.read(info.userlandHeader, 48);
-  if (!is(u, 0, MAGIC.userland)) throw new Error('The userland header was not where it should be');
+  if (!is(u, 0, MAGIC.userland)) throw new InstallerError('calc.noUserland', {}, 'The userland header was not where it should be');
   info.userlandVersion = cstr(u, 4, 8);
   let o = 12;
   info.storageAddress = u32(u, o); o += 4;
@@ -49,7 +50,7 @@ export async function readInfo(dfu) {
     info.appsRamEnd = u32(u, o); o += 4;
     if (!is(u, o, MAGIC.userland)) { o += 8; }
   }
-  if (!is(u, o, MAGIC.userland)) throw new Error('The userland header is not one this page knows');
+  if (!is(u, o, MAGIC.userland)) throw new InstallerError('calc.unknownUserland', {}, 'The userland header is not one this page knows');
   // the trampoline table the apps' EADK calls jump through: right after the header and the userland's ISR words
   info.trampoline = info.userlandHeader + o + 4 + USERLAND_ISR_SIZE;
   info.major = parseInt(info.version, 10) || 0;

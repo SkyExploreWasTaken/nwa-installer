@@ -3,6 +3,7 @@
 // NumPlay Studio links them. NumPlay (https://github.com/Mason363/NumPlay, GPL-3.0) is Mason Chen's: its kit (the
 // launcher's and games' objects, kit.json), its apps.js (which turns a .nwa into a NumPlay game) and its pico.js (which
 // reads PICO-8 carts) are fetched from NumPlay's site through the local server (numplay.js), not part of this repository.
+import { InstallerError } from './errors.js';
 import { ld, objcopy } from './link.js';
 import { MEGA_DRIVE, ROM_HEAD, romFrom, romSize, romTable } from './roms.js';
 
@@ -24,7 +25,7 @@ const cache = new Map();
 function fetchBytes(path) {
   if (!cache.has(path)) {
     const p = fetch(path).then(async (r) => {
-      if (!r.ok) throw new Error(path + ': HTTP ' + r.status);
+      if (!r.ok) throw new InstallerError('net.http', { file: path, status: r.status }, path + ': HTTP ' + r.status);
       const body = path.endsWith('.gz') ? r.body.pipeThrough(new DecompressionStream('gzip')) : r.body;
       return new Uint8Array(await new Response(body).arrayBuffer());
     });
@@ -33,7 +34,7 @@ function fetchBytes(path) {
   }
   return cache.get(path);
 }
-const fetchJson = (path) => fetch(path).then((r) => { if (!r.ok) throw new Error(path + ': HTTP ' + r.status); return r.json(); });
+const fetchJson = (path) => fetch(path).then((r) => { if (!r.ok) throw new InstallerError('net.http', { file: path, status: r.status }, path + ': HTTP ' + r.status); return r.json(); });
 
 // NumPlay's own scripts, loaded as NumPlay Studio loads them: each sets a global (npApps, npPico)
 const scripts = {};
@@ -42,7 +43,7 @@ function loadScript(src, global) {
     const s = document.createElement('script');
     s.src = src;
     s.onload = () => ok(window[global]);
-    s.onerror = () => { delete scripts[src]; s.remove(); no(new Error('Could not load NumPlay\'s ' + src.split('/').pop())); };
+    s.onerror = () => { delete scripts[src]; s.remove(); no(new InstallerError('numplay.script', { file: src.split('/').pop() }, 'Could not load NumPlay\'s ' + src.split('/').pop())); };
     document.head.appendChild(s);
   });
   return scripts[src];
@@ -163,7 +164,7 @@ export class NumPlayKit {
   async cartFrom(bytes, fileName) {
     const P = await loadPicoJs();
     let c;
-    try { c = await P.readCart(bytes, fileName); } catch (e) { throw new Error(fileName + ' isn\'t a PICO-8 cart NumPico can read'); }
+    try { c = await P.readCart(bytes, fileName); } catch (e) { throw new InstallerError('numplay.badCart', { file: fileName }, fileName + ' isn\'t a PICO-8 cart NumPico can read'); }
     return { ...c, title: new TextDecoder().decode(c.name) || 'cart', flash: P.cartBytes(c) };
   }
   // a cart's label as RGBA pixels (128 x 128), for a picture of it
@@ -175,7 +176,7 @@ export class NumPlayKit {
   async extraFrom(bytes, fileName, key) {
     const A = await loadAppsJs();
     const k = this.en;
-    if (!k.script.module) throw new Error('This NumPlay kit can\'t take apps');
+    if (!k.script.module) throw new InstallerError('numplay.noApps', {}, 'This NumPlay kit can\'t take apps');
     const id = 'app' + key, index = 200 + key, info = A.appInfo(bytes);
     const o1 = await ld(['-r', '-d', '-z', 'noexecstack', '--force-group-allocation', '-T', 'module.ld', 'app.nwa', '-o', '1.o'],
       { 'module.ld': k.script.module, 'app.nwa': bytes }, '1.o');
@@ -184,8 +185,8 @@ export class NumPlayKit {
       '--redefine-sym', '_heap_start=np_' + id + '_heap', '--redefine-sym', '_sbrk=np_sbrk', '1.o', '2.o'], { '1.o': o1 }, '2.o');
     const m = A.npmodule(o2, id, index);
     const missing = m.undefined.filter((u) => u !== 'np_' + id + '_heap' && !PROVIDED.test(u));
-    if (missing.length) throw new Error(fileName + ' needs ' + missing[0] + ', which NumPlay doesn\'t have');
-    if (((m.data + 7) & ~7) + m.bss + k.launcherRam > k.ramLimit) throw new Error(fileName + ' needs more RAM than NumPlay can give it');
+    if (missing.length) throw new InstallerError('numplay.missing', { file: fileName, symbol: missing[0] }, fileName + ' needs ' + missing[0] + ', which NumPlay doesn\'t have');
+    if (((m.data + 7) & ~7) + m.bss + k.launcherRam > k.ramLimit) throw new InstallerError('numplay.ram', { file: fileName }, fileName + ' needs more RAM than NumPlay can give it');
     const c = A.colors(info.icon), cd = A.card(info.icon, c.bottom);
     const z = new Uint8Array(await new Response(new Blob([cd.indices]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
     const ascii = (t) => (t || '').replace(/[^\x20-\x7e]/g, '').trim().slice(0, 24);
@@ -204,9 +205,9 @@ export class NumPlayKit {
   async build({ ids, extras = [], roms = [], carts = [], lang = 'en', variant = 'NumPlay', name = 'NumPlay', matrices = false, hint = true, secret = 0 }) {
     if (retroGoAlone(roms)) return { bytes: await this.buildRetroGo(roms), name: 'RetroGo' };
     ids = ids.concat(roms.length ? [this.retroGo.id] : [], carts.length ? [this.numPico.id] : []);
-    if (ids.length + extras.length > MAX_GAMES) throw new Error('NumPlay holds ' + MAX_GAMES + ' games and apps at most');
-    if (carts.length > MAX_CARTS) throw new Error('NumPico holds ' + MAX_CARTS + ' carts at most');
-    if (!ids.length && !extras.length) throw new Error('Pick some games first');
+    if (ids.length + extras.length > MAX_GAMES) throw new InstallerError('numplay.maxGames', { max: MAX_GAMES }, 'NumPlay holds ' + MAX_GAMES + ' games and apps at most');
+    if (carts.length > MAX_CARTS) throw new InstallerError('numplay.maxCarts', { max: MAX_CARTS }, 'NumPico holds ' + MAX_CARTS + ' carts at most');
+    if (!ids.length && !extras.length) throw new InstallerError('numplay.pickFirst', {}, 'Pick some games first');
     const k = lang === 'en' ? this.en : await this.language(lang);
     const dir = lang === 'en' ? '' : lang + '/';
     // a game's object in the chosen language, or the English one when that language has none of its own
@@ -248,7 +249,7 @@ export class NumPlayKit {
       return `    np_${a.id}_data = np_arena;\n    np_${a.id}_bss = np_arena + ${bss};\n    np_${a.id}_heap = np_arena + ${heap};\n`;
     }).join('');
     const tail = script.tail.replace('*(.np_arena) }', '*(.np_arena)\n' + ram + '  }');
-    if (ram && tail === script.tail) throw new Error('This NumPlay kit has no arena for apps');
+    if (ram && tail === script.tail) throw new InstallerError('numplay.noArena', {}, 'This NumPlay kit has no arena for apps');
     files['numplay.ld'] = head + blocks.join('') + tail;
     const linked = await ld(args.concat(['-o', 'out.nwa']), files, 'out.nwa');
     return { bytes: await objcopy(['--strip-unneeded', 'in.nwa', 'out.nwa'], { 'in.nwa': linked }, 'out.nwa'), name };

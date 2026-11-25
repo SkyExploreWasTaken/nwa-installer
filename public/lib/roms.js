@@ -3,6 +3,7 @@
 // and the table of games (np_roms) it finds in its block of NumPlay. This follows NumPlay Studio's app.js and
 // NumPlay's tools/romtable.py (https://github.com/Mason363/NumPlay, GPL-3.0). The games stay in the page: nothing
 // is uploaded.
+import { InstallerError } from './errors.js';
 
 export const SYSTEMS = {
   1: { tag: 'GB', name: 'Game Boy' },
@@ -30,7 +31,7 @@ export function romFrom(bytes, fileName, systems) {
   const sys = EXT[(fileName.split('.').pop() || '').toLowerCase()];
   if (!sys || !systems.includes(sys)) {
     const names = systems.map((s) => SYSTEMS[s].name).join(', ').replace(/, ([^,]*)$/, ' and $1');
-    throw new Error('Retro-Go plays ' + names + ' games');
+    throw new InstallerError('roms.system', { systems: systems.map((s) => SYSTEMS[s].name) }, 'Retro-Go plays ' + names + ' games');
   }
   const out = sys === 8 ? lz4Unpack(bytes) : sys === MEGA_DRIVE ? megaDrive(bytes, /\.smd$/i.test(fileName)) : trim(bytes, sys);
   return { sys, name: shortName(fileName), bytes: out };
@@ -88,7 +89,7 @@ function lz4Unpack(d) {
     const h = u32(i); i += 4;
     if (!h) break;
     const n = h & 0x7fffffff, end = i + n;
-    if (end > d.length) throw new Error('a broken LZ4 file');
+    if (end > d.length) throw new InstallerError('roms.badLz4', {}, 'a broken LZ4 file');
     if (h & 0x80000000) { need(n); out.set(d.subarray(i, end), o); o += n; i = end + (flg & 0x10 ? 4 : 0); continue; }
     while (i < end) {
       const tok = d[i++];
@@ -100,7 +101,7 @@ function lz4Unpack(d) {
       i += 2;
       let ml = (tok & 15) + 4;
       if ((tok & 15) === 15) for (let b = 255; b === 255 && i < end;) ml += (b = d[i++]);
-      if (!off || off > o) throw new Error('a broken LZ4 file');
+      if (!off || off > o) throw new InstallerError('roms.badLz4', {}, 'a broken LZ4 file');
       need(ml);
       for (let k = 0; k < ml; k++, o++) out[o] = out[o - off];
     }

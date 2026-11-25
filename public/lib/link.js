@@ -2,6 +2,7 @@
 // Links a .nwa (a relocatable ARM ELF) into the flat binary that goes in the calculator's flash at a given address,
 // as NumWorks' installer does: GNU ld (WebAssembly, vendor/ld.*) with eadk.o and the script below, then objcopy
 // to raw bytes. Every app is linked for the exact address it will sit at, so apps can't be moved once installed.
+import { InstallerError } from './errors.js';
 
 // tools = { ld: [factory, wasmBytes], oc: [factory, wasmBytes], eadk: Uint8Array }, from loadTools()
 let toolsPromise = null;
@@ -9,11 +10,11 @@ export function setTools(t) { toolsPromise = Promise.resolve(t); }
 
 export function loadTools(base = 'vendor/') {
   if (toolsPromise) return toolsPromise;
-  const bytes = (u) => fetch(base + u).then((r) => { if (!r.ok) throw new Error(u + ': ' + r.status); return r.arrayBuffer(); })
+  const bytes = (u) => fetch(base + u).then((r) => { if (!r.ok) throw new InstallerError('net.http', { file: u, status: r.status }, u + ': ' + r.status); return r.arrayBuffer(); })
     .then((b) => new Uint8Array(b));
   const script = (src) => new Promise((ok, no) => {
     const s = document.createElement('script');
-    s.src = base + src; s.onload = ok; s.onerror = () => no(new Error('Could not load ' + src + '. Did you run setup.js?'));
+    s.src = base + src; s.onload = ok; s.onerror = () => no(new InstallerError('link.load', { file: src }, 'Could not load ' + src + '. Did you run setup.js?'));
     document.head.appendChild(s);
   });
   toolsPromise = (async () => {
@@ -35,7 +36,7 @@ async function run([factory, wasm], args, files, out) {
   for (const [n, d] of Object.entries(files)) m.FS.writeFile(n, d);
   let code = 0;
   try { code = m.callMain(args); } catch (e) { if (e && typeof e.status === 'number') code = e.status; else throw e; }
-  if (code) throw new Error((log.trim() || 'exit code ' + code));
+  if (code) throw new InstallerError('link.failed', { msg: log.trim() || 'exit code ' + code }, (log.trim() || 'exit code ' + code));
   return m.FS.readFile(out);
 }
 
@@ -104,7 +105,7 @@ async function externalDataObject(t, data) {
 // -> Uint8Array: the app's bytes for flash at mem.flashStart
 export async function linkApp(nwa, mem, externalData) {
   const t = await toolsPromise;
-  if (!t) throw new Error('Linker not loaded');
+  if (!t) throw new InstallerError('link.notLoaded', {}, 'Linker not loaded');
   const args = ['--script', 'linker.ld', '--gc-sections', '--allow-multiple-definition', 'eadk.o', 'app.nwa'];
   const files = { 'linker.ld': linkerScript(mem), 'app.nwa': nwa, 'eadk.o': t.eadk };
   if (externalData) { files['extra-data.o'] = await externalDataObject(t, externalData); args.push('extra-data.o'); }
