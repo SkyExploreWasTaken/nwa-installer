@@ -2,7 +2,7 @@
 // Français. Mêmes clés et mêmes {variables} que en.js (vérifié par tools/check-i18n.mjs).
 // Les termes techniques (DFU, firmware, flash, Nwagra, slot, Epsilon) restent tels quels.
 export default {
-  'app.title': 'NWA Installer',
+  'app.title': 'Nwa Toolkit',
   'theme.label': 'Thème',
   'theme.auto': 'Automatique (système)',
   'theme.latte': 'Latte (clair)',
@@ -204,14 +204,14 @@ export default {
   'err.numplay.maxCarts': 'NumPico contient {max} cartouches au maximum',
 
   // ---- erreurs de lib/ (codes d'InstallerError)
-  'err.calc.n0100': 'La N0100 est trop ancienne pour cet installateur : elle n’a pas de place pour les applis .nwa, et NumWorks a cessé de la mettre à jour, donc cet installateur ne peut rien faire avec.',
+  'err.calc.n0100': 'La N0100 est trop ancienne pour Nwa Toolkit : elle n’a pas de place pour les applis .nwa, et NumWorks a cessé de la mettre à jour, donc Nwa Toolkit ne peut rien faire avec.',
   'err.calc.updateFirst': 'Cette calculatrice utilise un logiciel ancien ou non officiel qui n’indique pas son modèle. Mettez-la d’abord à jour sur le site officiel de NumWorks, my.numworks.com/devices/upgrade, puis reconnectez-la.',
-  'err.calc.unknownModel': 'Ce modèle de calculatrice (version USB {bcd}) n’est pas pris en charge par cet installateur.',
+  'err.calc.unknownModel': 'Ce modèle de calculatrice (version USB {bcd}) n’est pas pris en charge par Nwa Toolkit.',
   'err.calc.tooOld': 'Le logiciel de cette calculatrice n’est pas pris en charge (Epsilon 15 ou plus ancien, ou une version sans le bootloader de NumWorks). Installez l’Epsilon officiel depuis my.numworks.com/devices/upgrade, puis reconnectez-la.',
-  'err.calc.unofficial.thirdParty': 'Cette calculatrice utilise un logiciel non officiel (non signé), que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
-  'err.calc.unofficial.upsilon': 'Cette calculatrice utilise Upsilon, que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
-  'err.calc.unofficial.omega': 'Cette calculatrice utilise Omega, que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
-  'err.calc.unofficial.upsilonBootloader': 'Cette calculatrice utilise le bootloader d’Upsilon, que cet installateur ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.thirdParty': 'Cette calculatrice utilise un logiciel non officiel (non signé), que Nwa Toolkit ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.upsilon': 'Cette calculatrice utilise Upsilon, que Nwa Toolkit ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.omega': 'Cette calculatrice utilise Omega, que Nwa Toolkit ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
+  'err.calc.unofficial.upsilonBootloader': 'Cette calculatrice utilise le bootloader d’Upsilon, que Nwa Toolkit ne prend pas en charge. Réinstallez l’Epsilon officiel de NumWorks depuis my.numworks.com, puis reconnectez-la.',
   'err.calc.noKernel': 'L’en-tête du noyau n’était pas à sa place',
   'err.calc.noUserland': 'L’en-tête userland n’était pas à sa place',
   'err.calc.unknownUserland': 'Cet en-tête userland n’est pas connu de cette page',
@@ -312,7 +312,7 @@ export default {
   'sim.what.n0110': 'N0110 avec un firmware obsolète',
   'sim.what.n0115': 'N0115 avec un firmware obsolète',
   'progress.simulating': 'Simulation de la mise à jour… {pct} %',
-  'err.calc.n0100.noFlash': 'La N0100 est trop ancienne : cet installateur ne met jamais à jour son firmware.',
+  'err.calc.n0100.noFlash': 'La N0100 est trop ancienne : Nwa Toolkit ne met jamais à jour son firmware.',
   'err.gate.badModel': 'Choisissez N0110 ou N0115',
   'err.sim.noWrite': 'Simulation : rien n’est jamais écrit',
   'err.sim.unknown': 'Simulation inconnue : {id}',

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // English: the source of truth for every key, and the fallback for the other languages. See index.js for the syntax.
 export default {
-  'app.title': 'NWA Installer',
+  'app.title': 'Nwa Toolkit',
   'lang.label': 'Language',
   'theme.label': 'Theme',
   'theme.auto': 'Auto (system)',
@@ -202,14 +202,14 @@ export default {
   'err.numplay.maxCarts': 'NumPico holds {max} carts at most',
 
   // ---- errors from lib/ (InstallerError codes; each English text matches the error's own message)
-  'err.calc.n0100': "The N0100 is too old for this installer: it has no storage for .nwa apps, and NumWorks has stopped updating it, so this installer can't do anything with it.",
+  'err.calc.n0100': "The N0100 is too old for Nwa Toolkit: it has no storage for .nwa apps, and NumWorks has stopped updating it, so Nwa Toolkit can't do anything with it.",
   'err.calc.updateFirst': "This calculator runs old or unofficial software that doesn't say which model it is. Update it first on NumWorks' official site, my.numworks.com/devices/upgrade, then connect again.",
-  'err.calc.unknownModel': "This calculator model (USB version {bcd}) isn't supported by this installer.",
+  'err.calc.unknownModel': "This calculator model (USB version {bcd}) isn't supported by Nwa Toolkit.",
   'err.calc.tooOld': "This calculator's software isn't supported (Epsilon 15 or older, or a version without NumWorks' bootloader). Install official Epsilon from my.numworks.com/devices/upgrade, then connect again.",
-  'err.calc.unofficial.thirdParty': "This calculator runs unofficial (unsigned) software, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
-  'err.calc.unofficial.upsilon': "This calculator runs Upsilon, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
-  'err.calc.unofficial.omega': "This calculator runs Omega, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
-  'err.calc.unofficial.upsilonBootloader': "This calculator runs Upsilon's bootloader, which this installer doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.thirdParty': "This calculator runs unofficial (unsigned) software, which Nwa Toolkit doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.upsilon': "This calculator runs Upsilon, which Nwa Toolkit doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.omega': "This calculator runs Omega, which Nwa Toolkit doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
+  'err.calc.unofficial.upsilonBootloader': "This calculator runs Upsilon's bootloader, which Nwa Toolkit doesn't support. Reinstall NumWorks' official Epsilon from my.numworks.com, then connect again.",
   'err.calc.noKernel': 'The kernel header was not where it should be',
   'err.calc.noUserland': 'The userland header was not where it should be',
   'err.calc.unknownUserland': 'The userland header is not one this page knows',
@@ -310,7 +310,7 @@ export default {
   'sim.what.n0110': 'N0110 on outdated firmware',
   'sim.what.n0115': 'N0115 on outdated firmware',
   'progress.simulating': 'Simulating the update… {pct}%',
-  'err.calc.n0100.noFlash': 'The N0100 is too old: this installer never updates its firmware.',
+  'err.calc.n0100.noFlash': 'The N0100 is too old: Nwa Toolkit never updates its firmware.',
   'err.gate.badModel': 'Pick N0110 or N0115',
   'err.sim.noWrite': 'Simulation: nothing is ever written',
   'err.sim.unknown': 'No such simulation: {id}',

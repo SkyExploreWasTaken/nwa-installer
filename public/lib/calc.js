@@ -7,7 +7,7 @@ import { checkOfficial } from './official.js';
 
 // refuses a calculator that doesn't run official software (official.js), with what was found as the code
 function unofficial(check) {
-  throw new InstallerError('calc.unofficial.' + check.reason, {}, `This calculator runs unofficial software (${check.reason}), which this installer doesn't support. Reinstall NumWorks' official Epsilon, then connect again.`);
+  throw new InstallerError('calc.unofficial.' + check.reason, {}, `This calculator runs unofficial software (${check.reason}), which Nwa Toolkit doesn't support. Reinstall NumWorks' official Epsilon, then connect again.`);
 }
 export const SECTOR = 0x10000;            // apps start on 64 KB sectors
 export const FLASH_END = 0x90800000;
@@ -33,12 +33,12 @@ export async function readInfo(dfu) {
   // the model, from the USB descriptor (model.js); a calculator this page can't work with is refused, saying why
   const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName, serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
   // the N0100: refused (no external flash, so no app area; no bootloader; NumWorks stopped updating it)
-  if (m.refuse === 'calc.n0100') throw new InstallerError('calc.n0100', {}, 'The N0100 is too old for this installer: it has no storage for .nwa apps, and NumWorks has stopped updating it, so this installer cannot do anything with it.');
+  if (m.refuse === 'calc.n0100') throw new InstallerError('calc.n0100', {}, 'The N0100 is too old for Nwa Toolkit: it has no storage for .nwa apps, and NumWorks has stopped updating it, so Nwa Toolkit cannot do anything with it.');
   // an N0110/N0115 on outdated firmware: nothing read (its memory isn't laid out as below), and the page only offers
   // what gate.js allows: { model: null, limited: 'outdated' }
   if (m.limited === 'outdated') return { model: null, limited: 'outdated', serial: dfu.device?.serialNumber || null };
   if (m.refuse === 'calc.updateFirst') throw new InstallerError('calc.updateFirst', {}, 'This calculator runs old or unofficial software that does not say which model it is. Update it first on https://my.numworks.com/devices/upgrade, then connect again.');
-  if (m.refuse) throw new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by this installer.');
+  if (m.refuse) throw new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by Nwa Toolkit.');
   const info = { model: m.model, serial: dfu.device?.serialNumber || null, ramStart: 0x20000000 };
   // the N0120 has its RAM at 0x24000000: its DFU memories say so
   for (const l of dfu.layouts) for (const s of l.segments) if (s.start === 0x24000000) info.ramStart = 0x24000000;

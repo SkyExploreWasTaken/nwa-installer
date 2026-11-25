@@ -1,4 +1,4 @@
-# NWA Installer
+# Nwa Toolkit
 
 Install `.nwa` apps on a NumWorks calculator from your browser, over USB. You don't need a NumWorks account, and
 everything runs on your computer: the page talks to the calculator over WebUSB and links the apps itself.
@@ -156,7 +156,7 @@ answer 404.
 - **[GNU binutils](https://www.gnu.org/software/binutils/)** (GPL-3.0-or-later): ld and objcopy, which link every app,
   built as WebAssembly by NumPlay.
 - **Nwagra** (Enlarged Extra Apps) was made by an anonymous author who can't be reached anymore, as their website
-  is down. This installer does the same thing on its own. Code from
+  is down. Nwa Toolkit does the same thing on its own. Code from
   https://web.archive.org/web/20221008080116/https://www.nwagyu.com/nwagra.min.js, extracted from
   https://www.nwagyu.com/ (as the site is down).
 - **[NumWorks](https://www.numworks.com)**: the calculator, Epsilon and its official firmware (downloaded from

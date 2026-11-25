@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The installer from the command line.
+// Installing apps from the command line.
 //   node tools/install.mjs --compare app.nwa              link app.nwa where the first installed app is, compare bytes
 //   node tools/install.mjs [--keep] [--nwagra] a.nwa ...  plan an install
 //   ... add --write to flash it (and restart the calculator, unless --no-restart)

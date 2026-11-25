@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 const [kitSha, mainSha] = process.argv.slice(2);
 if (!/^[0-9a-f]{40}$/.test(kitSha || '') || !/^[0-9a-f]{40}$/.test(mainSha || ''))
   throw new Error('usage: node tools/make-numplay-manifest.mjs <kit-sha> <main-sha> (full 40-hex commit SHAs)');
-const REPO = 'Mason363/NumPlay', H = { headers: { 'User-Agent': 'nwa-installer (local)' } };
+const REPO = 'Mason363/NumPlay', H = { headers: { 'User-Agent': 'nwa-toolkit (local)' } };
 // the kit's files the builder uses (not the other calculators' ports nor the site's thumbnails)
 const USED = (p) => !/^(ports|thumbs)\//.test(p);
 

@@ -1,5 +1,5 @@
 {
-  "name": "nwa-installer",
+  "name": "nwa-toolkit",
   "version": "1.0.0",
   "description": "Install .nwa apps on a NumWorks calculator from your browser over WebUSB, without an account",
   "private": true,

@@ -27,7 +27,7 @@ const ORIGIN = 'https://raw.githubusercontent.com/';
 // (tests replace this to avoid the network) -> { status, body }
 let fetcher = function get(url, hops = 0) {
   return new Promise((ok, no) => {
-    https.get(url, { headers: { 'User-Agent': 'nwa-installer (local)' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'nwa-toolkit (local)' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 5) {
         res.resume();
         const next = new URL(res.headers.location, url).href;

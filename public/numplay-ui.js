@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The NumPlay builder in the installer page: pick games (and the extra apps the server offers, as games like the
+// The NumPlay builder in the page: pick games (and the extra apps the server offers, as games like the
 // others), add your own Game Boy, NES and Sega games for Retro-Go and PICO-8 carts for NumPico, choose the launcher's
 // looks, and its NumPlay.nwa goes straight into the apps to install.
 import { NumPlayKit, VARIANTS, SECRETS, MAX_GAMES, MAX_CARTS } from './lib/numplay.js';

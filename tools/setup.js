@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Gets the installer ready (npm run setup):
+// Gets Nwa Toolkit ready (npm run setup):
 //  - public/vendor/eadk.o: the small object every .nwa is linked with (its EADK calls jump through the calculator
 //    software's trampoline table). It's NumWorks' and isn't in the repository: it comes from the nwlink npm package
 //    they publish (npm install). public/vendor/ld.* and objcopy.* (GNU binutils, GPL) are in the repository.

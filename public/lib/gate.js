@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Calculators this installer only half supports or refuses, and what the page may do with them. No DOM here: app.js
+// Calculators Nwa Toolkit only half supports or refuses, and what the page may do with them. No DOM here: app.js
 // draws it, tools/test-gate.mjs tests it.
 //  - The N0100: refused when it connects (model.js, calc.js): too old, no external flash so no app area for .nwa apps,
 //    and NumWorks stopped updating it. No firmware is ever written to it either (assertFirmwareAllowed, checked by
@@ -18,7 +18,7 @@ export const OUTDATED_MODELS = ['N0110', 'N0115'];
 // throws unless firmware may be written to this model: never to the N0100
 export function assertFirmwareAllowed(model) {
   if (String(model || '').trim().toUpperCase() === 'N0100') {
-    throw new InstallerError('calc.n0100.noFlash', {}, 'The N0100 is too old: this installer never updates its firmware.');
+    throw new InstallerError('calc.n0100.noFlash', {}, 'The N0100 is too old: Nwa Toolkit never updates its firmware.');
   }
 }
 

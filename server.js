@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The installer's local web server, for this computer only (http://localhost:8642):
+// Nwa Toolkit's local web server, for this computer only (http://localhost:8642):
 //  - the page, from public/
 //  - NumWorks' official firmware at /api/firmware/ (numworks.js), fetched with your my.numworks.com account kept in
 //    numworks-account.json (see README): the account never goes to the page, only the firmware does
@@ -12,7 +12,7 @@ const numworks = require('./numworks.js');  // NumWorks' firmware at /api/firmwa
 
 const PORT = +(process.argv[2] || process.env.PORT || 8642);
 // host names the server answers to besides localhost, e.g. behind a reverse proxy with https (WebUSB needs a secure
-// context: localhost or https). ALLOWED_HOSTS=nwainstaller.example.com,other.example.com
+// context: localhost or https). ALLOWED_HOSTS=nwatoolkit.example.com,other.example.com
 const ALLOWED_HOSTS = ['localhost', '127.0.0.1',
   ...(process.env.ALLOWED_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)];
 const ROOT = path.join(__dirname, 'public');  // the page
@@ -90,5 +90,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   // NumWorks' firmware: checked now and then every hour (NWA_FW_SCHEDULE=0 turns the timer off, for tests)
   if (process.env.NWA_FW_SCHEDULE !== '0') numworks.start();
-  console.log(`NWA Installer on http://localhost:${PORT}/${PRODUCTION ? ' [production]' : ''}  (firmware updates: ${numworks.status().account ? 'NumWorks account found' : 'no numworks-account.json'})`);
+  console.log(`Nwa Toolkit on http://localhost:${PORT}/${PRODUCTION ? ' [production]' : ''}  (firmware updates: ${numworks.status().account ? 'NumWorks account found' : 'no numworks-account.json'})`);
 });

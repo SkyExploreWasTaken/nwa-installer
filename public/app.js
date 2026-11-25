@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The installer page: connect over WebUSB, show what's on the calculator, add .nwa files, install.
+// The page: connect over WebUSB, show what's on the calculator, add .nwa files, install.
 // Text the page shows comes from i18n/ (t()); the log stays in English, for bug reports. Everything this file draws
 // is kept as a function of the state (status, progress, firmware note, the confirm dialog), so switching language
 // redraws it in place: see 'langchange' at the end.

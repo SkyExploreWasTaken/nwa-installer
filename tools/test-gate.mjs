@@ -273,8 +273,8 @@ test('i18n: every new string in English and French, translated', async () => {
   for (const k of Object.keys(fr)) assert.ok(k in en, 'en: ' + k);
   assert.equal(fr['od.hint'], 'Le modèle exact est indiqué au dos de la calculatrice (par ex. N0110 ou N0115).');
   for (const k of ['err.calc.n0100', 'od.sub', 'refuse.title']) assert.ok(!/'/.test(fr[k]), 'French apostrophes as in the rest of fr.js: ' + k);
-  assert.match(en['err.calc.n0100'], /too old for this installer: it has no storage for \.nwa apps, and NumWorks has stopped updating it/);
-  assert.match(fr['err.calc.n0100'], /trop ancienne pour cet installateur : elle n’a pas de place pour les applis \.nwa, et NumWorks a cessé de la mettre à jour/);
+  assert.match(en['err.calc.n0100'], /too old for Nwa Toolkit: it has no storage for \.nwa apps, and NumWorks has stopped updating it/);
+  assert.match(fr['err.calc.n0100'], /trop ancienne pour Nwa Toolkit : elle n’a pas de place pour les applis \.nwa, et NumWorks a cessé de la mettre à jour/);
 });
 
 // ------------------------------------------------------------------ TEST MODE (simulate.js)
@@ -537,6 +537,25 @@ test('theme: Auto follows the system; Latte or Mocha picked is kept; Auto forget
   assert.match(html, /<select id="theme"[^>]*data-i18n-aria-label="theme\.label">\s*<option value="auto" data-i18n="theme\.auto">[^<]*<\/option>\s*<option value="latte" data-i18n="theme\.latte">[^<]*<\/option>\s*<option value="mocha" data-i18n="theme\.mocha">/);
   const en = (await import('../public/i18n/en.js')).default, fr = (await import('../public/i18n/fr.js')).default;
   for (const k of ['theme.label', 'theme.auto', 'theme.latte', 'theme.mocha']) assert.ok(en[k] && fr[k], k);
+});
+
+// ------------------------------------------------------------------ the name
+test('name: Nwa Toolkit everywhere; the old name only in the GitHub repository URL', async () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
+  assert.equal(pkg.name, 'nwa-toolkit');
+  const en = (await import('../public/i18n/en.js')).default, fr = (await import('../public/i18n/fr.js')).default;
+  assert.equal(en['app.title'], 'Nwa Toolkit');
+  assert.equal(fr['app.title'], 'Nwa Toolkit');
+  const html = fs.readFileSync(pub('index.html'), 'utf8');
+  assert.match(html, /<title>Nwa Toolkit<\/title>/);
+  const files = ['README.md', 'package.json', 'server.js', 'numworks.js', 'numplay.js', 'firmware-cache.js', 'serve.bat',
+    ...fs.readdirSync(path.join(repo, 'tools')).map((f) => 'tools/' + f),
+    ...['index.html', 'app.js', 'numplay-ui.js', 'theme.js', 'i18n/en.js', 'i18n/fr.js', ...fs.readdirSync(pub('lib')).map((f) => 'lib/' + f)].map((f) => 'public/' + f)];
+  for (const f of files) {
+    if (f === 'tools/test-gate.mjs') continue;
+    const src = fs.readFileSync(path.join(repo, f), 'utf8').replace(/https:\/\/github\.com\/SkyExploreWasTaken\/nwa-installer\b/g, '');
+    assert.ok(!/nwa[ _-]?installer|this installer|cet installateur/i.test(src), f + ' still has the old name');
+  }
 });
 
 // ------------------------------------------------------------------ run

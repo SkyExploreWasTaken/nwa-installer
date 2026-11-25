@@ -15,7 +15,7 @@ const { FirmwareCache, normalizeModel, isModel } = require('./firmware-cache.js'
 // (tools/test-numworks.mjs points these at a pretend my.numworks.com and account)
 const NW = process.env.NUMWORKS_URL || 'https://my.numworks.com';
 const ACCOUNT_FILE = process.env.NUMWORKS_ACCOUNT || path.join(__dirname, 'numworks-account.json');
-const UA = 'nwa-installer (local)';
+const UA = 'nwa-toolkit (local)';
 const RETRIES = 3;  // (the network can be flaky)
 
 const jar = new Map();  // the session's cookies, name -> value
