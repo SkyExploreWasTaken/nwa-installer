@@ -262,3 +262,23 @@ dialog p { color: var(--muted); font-size: 14px; }
 /* the hidden attribute always hides, whatever display a class gives (a .model-ask { display: grid } once kept a
    hidden block on screen) */
 [hidden] { display: none !important; }
+
+/* the very big warning: the N0100, or an outdated N0110/N0115 whose update was skipped (gate.js) */
+.big-warning { display: flex; gap: 18px; align-items: flex-start; padding: 26px 28px; border-radius: var(--radius);
+  background: #b00020; color: #fff; border: 4px solid #ffd400; box-shadow: 0 8px 30px rgba(176, 0, 32, .35); }
+.big-warning h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; letter-spacing: -.01em; color: #fff; }
+.big-warning p { margin: 0; font-size: 18px; line-height: 1.45; font-weight: 600; color: #fff; }
+.bw-icon { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 44px; font-weight: 900; background: #ffd400; color: #b00020; }
+
+/* an outdated N0110/N0115: which model, which version */
+.od-step { display: grid; gap: 8px; margin-bottom: 14px; }
+.od-models { display: flex; gap: 10px; flex-wrap: wrap; }
+.od-pick { min-width: 110px; font-weight: 700; }
+.od-pick[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+
+/* TEST MODE (?debug&simulate=..., development only) */
+.sim-badge { position: sticky; top: 0; z-index: 10; margin: -40px -22px 22px; padding: 10px 22px; text-align: center;
+  background: repeating-linear-gradient(45deg, #ffd400 0 14px, #1c1b1a 14px 28px); color: #fff; font-size: 14px; }
+.sim-badge b, .sim-badge span { background: #1c1b1a; padding: 3px 8px; border-radius: 6px; }
+.sim-badge b { font-size: 16px; letter-spacing: .06em; color: #ffd400; }

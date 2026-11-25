@@ -9,6 +9,9 @@
 </head>
 <body>
 <div class="shell">
+  <div id="sim-badge" class="sim-badge" role="status" hidden>
+    <b data-i18n="sim.badge">SIMULATION / TEST MODE</b> <span id="sim-badge-sub"></span>
+  </div>
   <header class="top">
     <div class="brand">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
@@ -34,6 +37,11 @@
   </header>
 
   <main>
+    <div id="big-warning" class="big-warning" role="alert" hidden>
+      <div class="bw-icon" aria-hidden="true">!</div>
+      <div><h2 id="big-warning-title"></h2><p id="big-warning-text"></p></div>
+    </div>
+
     <section id="s-connect" class="card">
       <div class="card-head">
         <span class="step">1</span>
@@ -44,6 +52,32 @@
         <button id="connect" class="primary" data-i18n="connect.button">Connect calculator</button>
       </div>
       <dl id="info" class="info" hidden></dl>
+    </section>
+
+    <section id="s-outdated" class="card" hidden>
+      <div class="card-head">
+        <span class="step">2</span>
+        <div><h2 data-i18n="od.title">Update the calculator's software</h2><p class="muted" data-i18n="od.sub">This calculator's firmware is outdated. Nothing is updated without you: pick its model, then a version, or skip.</p></div>
+      </div>
+      <div class="od-step">
+        <span class="k" data-i18n="od.model">Which model is it?</span>
+        <div class="od-models" role="group" aria-label="Model" data-i18n-aria-label="od.model">
+          <button id="od-n0110" class="ghost od-pick" type="button" data-model="N0110" aria-pressed="false">N0110</button>
+          <button id="od-n0115" class="ghost od-pick" type="button" data-model="N0115" aria-pressed="false">N0115</button>
+        </div>
+        <p class="note" data-i18n="od.hint">The exact model is printed on the back of the calculator (e.g. N0110 or N0115).</p>
+      </div>
+      <div id="od-version-step" class="od-step" hidden>
+        <label class="fw-version"><span class="k" data-i18n="od.version">Version to install</span>
+          <select id="od-version"></select></label>
+        <p id="od-plan" class="muted"></p>
+      </div>
+      <p id="od-msg" class="note" hidden></p>
+      <div class="install-row">
+        <button id="od-skip" class="ghost" type="button" data-i18n="od.skip">Skip update</button>
+        <button id="od-update" class="primary big" type="button" disabled data-i18n="fw.install">Update</button>
+      </div>
+      <div id="od-progress" class="progress" hidden><div></div><span></span></div>
     </section>
 
     <section id="s-apps" class="card" hidden>

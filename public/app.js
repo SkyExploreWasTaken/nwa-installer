@@ -12,13 +12,15 @@ import { firmwareChoices } from './lib/fwchoice.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
+import { devFlags } from './lib/env.js';
+import { OutdatedFlow, assertFirmwareAllowed, pickFlasher } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 applyDom();
 initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null };
+const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null };
 const T = (key, vars) => () => t(key, vars);  // a text to draw now and again on a language change
 // an error the page itself throws, with a code for its text (err.<code>) and the English message for the log
 const uiError = (code, params, message, cause) => new InstallerError(code, params, message, cause ? { cause } : undefined);
@@ -75,20 +77,26 @@ async function job(name, fn) {
 }
 
 // ------------------------------------------------------------------ connecting
-const MOCK = new URLSearchParams(location.search).has('mock');
-// ?debug: the page's state on window.nwaDebug, for reading the calculator from the console (read-only checks)
-if (new URLSearchParams(location.search).has('debug')) window.nwaDebug = st;  // a pretend calculator, for testing (dev/mockdfu.js)
+// the developer flags, only ever through lib/env.js's gate (all off when the server runs with NODE_ENV=production):
+//  ?mock: a pretend calculator, for testing (dev/mockdfu.js)
+//  ?debug: the page's state on window.nwaDebug, for reading the calculator from the console (read-only checks)
+//  ?debug&simulate=n0100|n0110-old|n0115-old: TEST MODE, a simulated calculator (lib/simulate.js), never any USB
+const { mock: MOCK, debug: DEBUG, simulate: SIM } = devFlags();
+if (DEBUG) window.nwaDebug = st;
+// (simulate.js only loaded for a simulation: in production the server doesn't even serve it)
+const sim = SIM ? await import('./lib/simulate.js') : null;
+if (SIM) $('#sim-badge').hidden = false;
 // iPhone and iPad: no WebUSB in any of their browsers (they're all WebKit underneath). iPadOS says it's a Mac:
 // a "Mac" with a touch screen is an iPad.
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const NO_USB = !MOCK && (IOS || !('usb' in navigator));
+const NO_USB = !MOCK && !SIM && (IOS || !('usb' in navigator));
 if (NO_USB) {
   status(T(IOS ? 'connect.ios' : 'connect.noWebUsb'), 'warn');
   $('#connect').disabled = true;
 }
 
 $('#connect').addEventListener('click', () => job('connect', async () => {
-  if (MOCK) return connect(null);
+  if (MOCK || SIM) return connect(null);
   let dev;
   try { dev = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0483 }] }); } catch (e) {
     if (e.name === 'NotFoundError') { status(T('connect.nonePicked')); return; }
@@ -100,10 +108,11 @@ $('#connect').addEventListener('click', () => job('connect', async () => {
 async function connect(dev) {
   if (st.dfu) await st.dfu.close();
   st.dev = dev;
-  st.dfu = MOCK ? await (await import('./dev/mockdfu.js')).mockDevice() : new Dfu(dev);
+  st.outdated = null;
+  st.dfu = SIM ? sim.simulatedDevice(SIM) : MOCK ? await (await import('./dev/mockdfu.js')).mockDevice() : new Dfu(dev);
   try {
     await st.dfu.open();
-    if (MOCK) dev = { productName: st.dfu.productName };
+    if (MOCK || SIM) dev = { productName: st.dfu.productName };
     status(T('connect.reading'));
     st.info = await readInfo(st.dfu);
   } catch (e) {
@@ -114,11 +123,24 @@ async function connect(dev) {
     if (/^calc\.(tooOld|n0100|updateFirst|unknownModel|unofficial\.)/.test(e.code || '')) throw e;
     throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
   }
+  if (st.info.limited) return connectLimited(dev);
   log(`DFU memories: ${(st.info.dfuStrings || []).join(' | ')}; software: ${st.info.firmwareCheck?.official ? 'official' : '?'}${st.info.firmwareCheck && !st.info.firmwareCheck.known ? ' (DFU string not one of the documented forms: allowed)' : ''}`);
   log(`Connected: ${st.info.model} (from its USB descriptor), Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
   await rescan();
   status(T('connect.ok', { name: dev.productName || 'NumWorks', model: modelLabel(st.info.model) }), 'ok');
   loadTools().catch((e) => log('Linker: ' + e.message));
+}
+
+// the N0100, or an N0110/N0115 on outdated firmware (lib/gate.js): nothing else read, only what gate.js allows
+function connectLimited(dev) {
+  const i = st.info;
+  log(`DFU memories: ${st.dfu.layouts.map((l) => l.name).join(' | ')}`);
+  if (i.limited === 'n0100') log('Connected: N0100. Too old, not really supported: no firmware is ever offered or written to it.');
+  else {
+    log('Connected: an N0110 or N0115 on outdated firmware (USB version 1.0.0). Nothing is updated until a model and version are picked and confirmed.');
+    st.outdated = new OutdatedFlow({ loadInfo: loadOutdatedInfo, flash: outdatedFlasher, onChange: () => render() });
+  }
+  status(T('connect.ok', { name: dev?.productName || 'NumWorks', model: modelLabel(i.model) }), i.limited === 'n0100' ? 'warn' : 'ok');
 }
 
 async function rescan() {
@@ -131,7 +153,7 @@ async function rescan() {
 
 navigator.usb?.addEventListener('disconnect', (e) => {
   if (e.device === st.dev) {
-    st.dev = st.dfu = st.info = st.scan = null;
+    st.dev = st.dfu = st.info = st.scan = st.outdated = null;
     status(T('connect.unplugged'));
     log('Calculator disconnected');
     render();
@@ -139,7 +161,7 @@ navigator.usb?.addEventListener('disconnect', (e) => {
 });
 
 // how a model is named on the page (the Portugal prototype has a long name)
-const modelLabel = (m) => (m.startsWith('N0120_PORTUGAL') ? t('model.portugal') : m);
+const modelLabel = (m) => (!m ? t('model.outdated') : m === 'N0100' ? t('model.n0100') : m.startsWith('N0120_PORTUGAL') ? t('model.portugal') : m);
 
 // ------------------------------------------------------------------ backups and restore
 $('#backup-apps').addEventListener('click', () => job('backup', async () => {
@@ -229,19 +251,22 @@ function layout() {
 }
 
 function render() {
-  const on = !!st.info;
-  $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !on;
+  const on = !!st.info, full = on && !st.info.limited;
+  $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !full;
   $('#info').hidden = !on;
   $('#connect').textContent = t(on ? 'connect.again' : 'connect.button');
-  for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on) || (b.id === 'connect' && NO_USB);
+  for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !full) || (b.id === 'connect' && NO_USB);
+  drawSimBadge();
+  drawBigWarning();
+  drawOutdated();
   if (!on) return;
   const i = st.info;
-  renderFirmware();
-
   const info = $('#info');
   info.textContent = '';
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
   add(t('info.model'), modelLabel(i.model));
+  if (!full) return;
+  renderFirmware();
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
   add(t('info.nwagra'), i.nwagraOk ? t('info.areaVal', { start: hex(i.appsStart), end: hex(i.nwagraEnd), size: i.nwagraEnd - i.appsStart }) : t('info.nwagraNo'));
@@ -373,6 +398,8 @@ const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
 $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
+  if (!st.info || st.info.limited) return;
+  assertFirmwareAllowed(st.info.model);
   // (a guessed model could be the wrong one: an N0115 can look like an N0110, and its firmware is not the same)
   const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup(T('fw.needServer')); return; }
@@ -444,7 +471,8 @@ function renderFirmware() {
 
 $('#fw-install').addEventListener('click', async () => {
   const i = st.info, p = fwPicked();
-  if (!p?.available) return;
+  if (!i || i.limited || !p?.available) return;
+  try { assertFirmwareAllowed(i.model); } catch (e) { log(e.message); return; }
   const f = { version: p.version, patch_level: p.patch, name: p.version, channel: p.channel };
   const target = i.slot === 'A' ? 'B' : 'A';
   const keep = $('#fw-keep').checked;
@@ -531,6 +559,128 @@ $('#fw-install').addEventListener('click', async () => {
   });
 });
 
+// ------------------------------------------------------------------ half-supported calculators (lib/gate.js)
+// The very big warning, at the top of the page: the N0100 always; an outdated N0110/N0115 once its update is skipped.
+function drawBigWarning() {
+  const which = st.info?.limited === 'n0100' ? 'n0100' : st.outdated?.step === 'skipped' ? 'outdated' : null;
+  $('#big-warning').hidden = !which;
+  if (!which) return;
+  $('#big-warning-title').textContent = t(`warn.${which}.title`);
+  $('#big-warning-text').textContent = t(`warn.${which}.body`);
+}
+
+function drawSimBadge() {
+  if (!SIM) return;
+  $('#sim-badge-sub').textContent = t('sim.badge.sub', { what: t('sim.what.' + sim.simulatedModel(SIM).toLowerCase()) });
+}
+
+// what this computer keeps for that model (/api/firmware/<model>.json). Simulating: the same when the server has any,
+// else made-up versions, so the screens can be tried without a server or an account.
+async function loadOutdatedInfo(model) {
+  if (SIM) {
+    const j = await fetch(`api/firmware/${model}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    return j?.versions?.length ? j : { versions: sim.SIMULATED_VERSIONS[model] || [] };
+  }
+  const r = await fetch(`api/firmware/${model}.json`);
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && j.code === 'fw.noneForModel') return { versions: [] };
+  if (!r.ok) throw serverError(j, r.status);
+  return j;
+}
+
+// writes the confirmed firmware to an outdated N0110/N0115: every part of the .dfu its DFU interface lets be written,
+// each checked byte by byte, then restarts it. Never in a simulation (pickFlasher gives the simulated one there).
+async function flashOutdated(model, option) {
+  if (SIM || st.dfu?.simulated) throw uiError('sim.noWrite', {}, 'Simulation: nothing is ever written');
+  assertFirmwareAllowed(model);
+  const bar = (label, vars) => (p) => progress(p, label, vars, $('#od-progress'));
+  log(`Downloading Epsilon ${option.version} (${option.channel}) for the ${model}…`);
+  bar('progress.downloading')(0);
+  const r = await fetch(`api/firmware/${model}.dfu?version=${encodeURIComponent(option.version)}&channel=${encodeURIComponent(option.channel || 'stable')}`);
+  if (!r.ok) throw serverError(await r.json().catch(() => ({})), r.status);
+  const elements = writableElements(parseDfuFile(new Uint8Array(await r.arrayBuffer())), st.dfu);
+  if (!elements.length) throw uiError('fw.nothing', {}, 'Nothing in that firmware is for the part of the calculator that can be written now');
+  log(`Firmware: ${elements.map((e) => hex(e.address) + ' (' + e.data.length + ' bytes)').join(', ')}`);
+  let n = 0;
+  for (const e of elements) {
+    const pad = (4 - (e.data.length % 4)) % 4;
+    const data = new Uint8Array(e.data.length + pad).fill(0xff);
+    data.set(e.data);
+    n++;
+    await st.dfu.write(e.address, data, bar('progress.writingN', { n, total: elements.length }));
+    const back = await st.dfu.read(e.address, data.length, bar('progress.checkingN', { n, total: elements.length }));
+    for (let k = 0; k < data.length; k++) if (back[k] !== data[k]) throw uiError('fw.check', { address: hex(e.address + k) }, 'Check failed at ' + hex(e.address + k) + '. The calculator still runs its current software: try again.');
+  }
+  log(`Wrote and checked Epsilon ${option.version}. Restarting the calculator…`);
+  await st.dfu.leave(elements[0].address).catch(() => {});
+  return { simulated: false, model, version: option.version };
+}
+const outdatedFlasher = pickFlasher({ simulate: SIM, real: flashOutdated,
+  simulated: sim && ((model, option) => sim.simulatedFlash(model, option, (p) => progress(p, 'progress.simulating', {}, $('#od-progress')))) });
+
+function drawOutdated() {
+  const f = st.outdated;
+  $('#s-outdated').hidden = !f || f.step === 'skipped';
+  if (!f) return;
+  const locked = st.busy || f.step === 'flashing' || f.step === 'done';
+  for (const b of document.querySelectorAll('.od-pick')) {
+    b.setAttribute('aria-pressed', String(b.dataset.model === f.model));
+    b.disabled = locked;
+  }
+  const choosing = f.step === 'version';
+  $('#od-version-step').hidden = !(choosing || f.step === 'flashing' || f.step === 'done');
+  const sel = $('#od-version');
+  sel.textContent = '';
+  f.options.forEach((o, n) => {
+    const op = el('option', '', t('od.opt', { version: o.version, patch: o.patch || '?' }) + (o.channel === 'beta' ? ' ' + t('fw.opt.beta') : '')
+      + (n === 0 ? ' ' + t('od.opt.oldest') : ''));
+    op.value = o.version;
+    sel.append(op);
+  });
+  sel.value = f.selected || '';
+  sel.disabled = locked || !choosing;
+  const picked = f.options.find((o) => o.version === f.selected);
+  $('#od-plan').textContent = picked ? t('od.plan', { size: picked.size || 0, model: f.model }) : '';
+  const msg = f.step === 'model' ? t('od.pickFirst') : f.step === 'loading' ? t('od.loading')
+    : f.step === 'none' ? t('od.none', { model: f.model }) : f.step === 'error' && f.error ? t('od.error', { msg: errText(f.error) }) : '';
+  $('#od-msg').hidden = !msg;
+  $('#od-msg').textContent = msg;
+  $('#od-msg').className = f.step === 'none' || f.step === 'error' ? 'note warn' : 'note';
+  const u = $('#od-update');
+  u.textContent = picked ? t('fw.updateTo', { version: picked.version }) : t('fw.install');
+  u.disabled = locked || !choosing || !picked;
+  $('#od-skip').disabled = locked;
+}
+
+for (const b of document.querySelectorAll('.od-pick')) b.addEventListener('click', () => {
+  st.outdated?.chooseModel(b.dataset.model).catch((e) => log('Model: ' + e.message));
+});
+$('#od-version').addEventListener('change', (e) => st.outdated?.select(e.target.value));
+$('#od-skip').addEventListener('click', () => {
+  if (!st.outdated?.skip()) return;
+  log('Update skipped: nothing written. This firmware is not really supported by this installer.');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+$('#od-update').addEventListener('click', async () => {
+  const f = st.outdated;
+  if (!f || f.step !== 'version') return;
+  const version = f.selected, model = f.model;
+  // nothing is written before this explicit confirm of the version shown
+  if (!await confirmDialog(T('od.confirm', { version, model }))) return;
+  await job('update', async () => {
+    if (st.outdated !== f) return;
+    await f.confirm(version);
+    progress(1, 'progress.done', {}, $('#od-progress'));
+    if (f.result?.simulated) {
+      log(`Simulated: Epsilon ${version} for the ${model}; nothing written`);
+      status(T('od.simDone', { version, model }), 'ok');
+      return;
+    }
+    st.dev = st.dfu = st.info = st.scan = st.outdated = null;
+    status(T('od.done', { version }), 'ok');
+  });
+});
+
 // ------------------------------------------------------------------ the NumPlay builder (numplay-ui.js)
 const numplay = initNumPlay({
   log,
@@ -552,7 +702,7 @@ const numplay = initNumPlay({
 window.addEventListener('langchange', () => {
   drawStatus();
   drawFwSetup();
-  for (const box of [$('#progress'), $('#fw-progress')]) drawProgress(box);
+  for (const box of [$('#progress'), $('#fw-progress'), $('#od-progress')]) drawProgress(box);
   const d = $('#confirm');
   if (d.open && d._text) $('#confirm-text').textContent = d._text();
   render();

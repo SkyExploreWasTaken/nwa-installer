@@ -22,6 +22,15 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   '.nwa': 'application/octet-stream' };
 // never served, even if they end up in public/
 const PRIVATE = /(^|\/)(numworks-account\.json|node_modules|\.git)(\/|$)/i;
+// NODE_ENV: 'production' turns the page's developer features off (?mock, ?debug, ?debug&simulate=..., gated in
+// public/lib/env.js, isDevMode()). The page learns it from lib/build-mode.js, which is answered here from NODE_ENV
+// ('development' when unset, as before: ?mock and ?debug always worked) instead of the file. In production DEV_ONLY isn't
+// served at all.
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const PRODUCTION = NODE_ENV === 'production';
+// what only development serves: the mock calculator (dev/) and the TEST MODE's simulated calculator
+const DEV_ONLY = /^(dev(\/|$)|lib\/simulate\.js$)/i;
+const BUILD_MODE_JS = Buffer.from('export const NODE_ENV = ' + JSON.stringify(NODE_ENV) + ';\n');
 
 // on every response. The page has no inline scripts or styles (styles set from JS go through the CSSOM, which CSP allows);
 // the linker (vendor/ld.wasm, objcopy.wasm) needs 'wasm-unsafe-eval' to compile WebAssembly.
@@ -41,6 +50,13 @@ function serveFile(req, res, pathname) {
   if (PRIVATE.test(rel)) { res.writeHead(404); return res.end('Not found'); }
   const file = path.resolve(ROOT, rel);
   if (!file.startsWith(ROOT + path.sep) && file !== ROOT) { res.writeHead(403); return res.end(); }
+  // (checked on the resolved path, so lib/./simulate.js or dev\x are caught too)
+  const inRoot = path.relative(ROOT, file).split(path.sep).join('/');
+  if (PRODUCTION && DEV_ONLY.test(inRoot)) { res.writeHead(404); return res.end('Not found'); }
+  if (inRoot.toLowerCase() === 'lib/build-mode.js') {
+    res.writeHead(200, { 'Content-Type': TYPES['.js'], 'Content-Length': BUILD_MODE_JS.length, 'Cache-Control': 'no-cache' });
+    return res.end(BUILD_MODE_JS);
+  }
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end('Not found'); }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream',
@@ -74,5 +90,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   // NumWorks' firmware: checked now and then every hour (NWA_FW_SCHEDULE=0 turns the timer off, for tests)
   if (process.env.NWA_FW_SCHEDULE !== '0') numworks.start();
-  console.log(`NWA Installer on http://localhost:${PORT}/  (firmware updates: ${numworks.status().account ? 'NumWorks account found' : 'no numworks-account.json'})`);
+  console.log(`NWA Installer on http://localhost:${PORT}/${PRODUCTION ? ' [production]' : ''}  (firmware updates: ${numworks.status().account ? 'NumWorks account found' : 'no numworks-account.json'})`);
 });

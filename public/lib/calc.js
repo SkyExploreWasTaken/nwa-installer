@@ -32,7 +32,10 @@ export async function readInfo(dfu) {
   if (productName === 'Upsilon Bootloader') unofficial(checkOfficial({ productName }));
   // the model, from the USB descriptor (model.js); a calculator this page can't work with is refused, saying why
   const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName, serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
-  if (m.refuse === 'calc.n0100') throw new InstallerError('calc.n0100', {}, 'The N0100 is not supported by this installer.');
+  // the N0100, or an N0110/N0115 on outdated firmware: nothing read (their memory isn't laid out as below), and the
+  // page only offers what gate.js allows: { model, limited }
+  if (m.limited === 'n0100') return { model: 'N0100', limited: 'n0100', serial: dfu.device?.serialNumber || null };
+  if (m.limited === 'outdated') return { model: null, limited: 'outdated', serial: dfu.device?.serialNumber || null };
   if (m.refuse === 'calc.updateFirst') throw new InstallerError('calc.updateFirst', {}, 'This calculator runs old or unofficial software that does not say which model it is. Update it first on https://my.numworks.com/devices/upgrade, then connect again.');
   if (m.refuse) throw new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by this installer.');
   const info = { model: m.model, serial: dfu.device?.serialNumber || null, ramStart: 0x20000000 };

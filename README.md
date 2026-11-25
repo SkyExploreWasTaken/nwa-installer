@@ -96,6 +96,9 @@ public/
   lib/dfufile.js     NumWorks' firmware files (.dfu)
   lib/storage.js     the calculator's files
   vendor/            GNU ld and objcopy as WebAssembly; eadk.o (made by npm run setup)
+  lib/gate.js        the N0100 (warning only, never any firmware) and outdated N0110/N0115 (pick model, version, confirm or skip)
+  lib/env.js         the one gate for ?mock, ?debug and ?debug&simulate=...: off when the server runs with NODE_ENV=production
+  lib/simulate.js    TEST MODE: a simulated N0100 / outdated N0110 / outdated N0115 that never writes (not served in production)
   dev/mockdfu.js     a pretend calculator for testing the page (?mock)
 tools/               the same code from the command line, and setup
 ```
@@ -123,6 +126,18 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 | `node tools/install.mjs [--keep] [--nwagra] [--write] a.nwa ...` | plans an install, and with `--write` flashes it |
 | `npm test` | signs in to a pretend my.numworks.com and fetches its firmware, the way `numworks.js` does with the real one |
 | `node tools/dump-mock.mjs` and `node tools/make-mock-firmware.mjs` | save what http://localhost:8642/?mock needs: the page on a pretend copy of your calculator, writing to memory only |
+
+### Test mode and production
+`npm start` (or serve.bat) serves http://localhost:8642/. Without `NODE_ENV=production` these developer URLs work:
+`?mock` (a pretend N0120), `?debug` (state on `window.nwaDebug`), and the TEST MODE, which simulates a calculator,
+shows a striped badge, and never touches USB (a confirmed update only moves a progress bar):
+- http://localhost:8642/?debug&simulate=n0100 : an N0100 (the very big warning)
+- http://localhost:8642/?debug&simulate=n0110-old : an N0110 on outdated firmware (pick the model, a version, confirm or skip)
+- http://localhost:8642/?debug&simulate=n0115-old : the same for an N0115
+
+With `NODE_ENV=production` set in the server's environment (e.g. systemd `Environment=NODE_ENV=production`), server.js
+tells the page so through `lib/build-mode.js`, every one of those flags is ignored, and `dev/` and `lib/simulate.js`
+answer 404.
 
 ## Credits
 - **[NumPlay](https://github.com/Mason363/NumPlay)** by Mason Chen and its contributors (GPL-3.0): the launcher and
