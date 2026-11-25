@@ -4,7 +4,7 @@
 //  - the N0100 and every other connect-time refusal: a pop-up (modal dialog, OK/Esc), then not connected; nothing read
 //    from the N0100, never any firmware (assertFirmwareAllowed)
 //  - an N0110/N0115 on outdated firmware: model asked, every cached version listed oldest first with the oldest picked,
-//    nothing flashed before an explicit confirm of the version shown, then exactly that one; skipping never flashes,
+//    nothing flashed before an explicit confirm of the version shown, then exactly that one; Cancel never flashes;
 //    shows the warning once per connection, and after its OK the normal page, where what can't work says so
 //  - Epsilon 16+, the N0120, the Portugal prototype and the N0200: as before
 //  - EN and FR: every new string in both
@@ -22,7 +22,7 @@ const pub = (...p) => path.join(repo, 'public', ...p);
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-const { OutdatedFlow, OUTDATED_MODELS, assertFirmwareAllowed, cachedVersions, pickFlasher, limitedView, limitedActionError, limitedFirmwareError, refusalOf } = await import('../public/lib/gate.js');
+const { OutdatedFlow, OUTDATED_MODELS, assertFirmwareAllowed, cachedVersions, pickFlasher, limitedView, refusalOf } = await import('../public/lib/gate.js');
 const { detectModel, usbVersionOf } = await import('../public/lib/model.js');
 const { readInfo } = await import('../public/lib/calc.js');
 const { simulatedDevice, simulatedFlash, simulatedModel, SIMULATED_IDS, SIMULATED_VERSIONS } = await import('../public/lib/simulate.js');
@@ -147,7 +147,7 @@ test('outdated: no flash before the confirm; the confirm flashes exactly the ver
   assert.deepEqual(flashed, [['N0110', '23.2.6', 'stable']]);
   assert.equal(flow.step, 'done');
   assert.equal(await flow.confirm('23.2.6'), false, 'once');
-  assert.equal(flow.skip(), false, 'too late to skip');
+  assert.equal(flow.cancel(), false, 'too late to cancel');
   assert.equal(flashed.length, 1);
 });
 
@@ -173,25 +173,28 @@ test('outdated: nothing cached for that model: a message, never a flash', async 
   assert.match(app, /f\.step === 'none' \? t\('od\.none'/, 'the page says so');
 });
 
-test('outdated: Skip update shows the same very big warning and never flashes', async () => {
+test('outdated: no Skip update any more; Cancel never flashes, then or later', async () => {
   const { flow, flashed } = newFlow();
+  assert.equal(typeof flow.skip, 'undefined', 'no skip path');
   await flow.chooseModel('N0110');
-  assert.equal(flow.skip(), true);
-  assert.equal(flow.step, 'skipped');
+  assert.equal(flow.cancel(), true);
+  assert.equal(flow.step, 'cancelled');
   await flow.chooseModel('N0110');
-  assert.equal(flow.step, 'skipped', 'stays skipped');
+  assert.equal(flow.step, 'cancelled', 'stays cancelled');
   assert.equal(flow.select('19.5.1'), false);
   assert.equal(await flow.confirm('19.5.1'), false);
   assert.deepEqual(flashed, []);
   const fresh = newFlow();
-  assert.equal(fresh.flow.skip(), true, 'skipping before picking a model works too');
+  assert.equal(fresh.flow.cancel(), true, 'before picking a model too');
   assert.equal(await fresh.flow.confirm('26.4.0'), false);
   assert.deepEqual(fresh.flashed, []);
-  // the page: the same banner element, its outdated text, after a skip
-  const app = fs.readFileSync(pub('app.js'), 'utf8');
-  assert.match(app, /if \(limitedView\(\{ connected: !!st\.info, limited: st\.info\?\.limited, outdatedStep: st\.outdated\.step, dismissed: st\.warned \}\)\.warning\) \{\s*const conn = st\.dfu;\s*showNotice\(\{ kind: 'outdated', title: T\('warn\.outdated\.title'\), text: T\('warn\.outdated\.body'\)/,
-    'Skip update: the warning pop-up');
-  assert.match(fs.readFileSync(pub('index.html'), 'utf8'), /<button id="od-skip"[^>]*data-i18n="od\.skip">Skip update<\/button>/);
+  // the page: Cancel lets the calculator go and is back to not connected, no warning, no app sections
+  const app = fs.readFileSync(pub('app.js'), 'utf8'), html = fs.readFileSync(pub('index.html'), 'utf8');
+  assert.ok(!/od-skip|od\.skip|warn\.outdated|st\.warned|kind: 'outdated'/.test(app + html), 'nothing left of the skip path');
+  assert.match(html, /<button id="od-cancel" class="ghost" type="button" data-i18n="dlg\.cancel">Cancel<\/button>/);
+  assert.match(app, /\$\('#od-cancel'\)\.addEventListener\('click', async \(\) => \{\s*if \(!st\.outdated\?\.cancel\(\)\) return;\s*log\('Update cancelled: nothing written\.'\);\s*await st\.dfu\?\.close\(\)\.catch\(\(\) => \{\}\);\s*st\.dev = st\.dfu = st\.info = st\.scan = st\.outdated = null;\s*status\(T\('connect\.hint'\)\);\s*render\(\);/);
+  const cancel = /\$\('#od-cancel'\)[^]*?\n\}\);/.exec(app)[0];
+  assert.ok(!/write|flash|program|confirm/i.test(cancel.replace(/cancel/gi, '')), 'Cancel writes nothing');
 });
 
 test('outdated: the page asks for the model with the back-of-the-calculator hint and confirms before any write', () => {
@@ -199,44 +202,26 @@ test('outdated: the page asks for the model with the back-of-the-calculator hint
   assert.match(html, /data-model="N0110"/);
   assert.match(html, /data-model="N0115"/);
   assert.match(html, /data-i18n="od\.hint"/);
+  assert.match(html, /data-i18n="od\.sub">This calculator runs Epsilon 15 or older, which has no space for \.nwa apps \(they need Epsilon 16 or later\), so it must be updated first\./);
   assert.match(app, /if \(!await confirmDialog\(T\('od\.confirm', \{ version, model \}\)\)\) return;\s*await job\('update', async \(\) => \{\s*if \(st\.outdated !== f\) return;\s*await f\.confirm\(version\);/,
     'the dialog first, then the flow\'s confirm of that version');
   assert.ok(!/\.confirm\(/.test(app.replace(/f\.confirm\(version\)/, '')), 'no other path to the flow\'s confirm');
 });
 
-test('skipped: the warning once, OK dismisses it, then the normal page; a new connection warns again', () => {
-  const v = (step, dismissed) => limitedView({ connected: true, limited: 'outdated', outdatedStep: step, dismissed });
-  assert.deepEqual(v('model', false), { warning: null, normal: false, outdatedFlow: true }, 'before skipping: the update step');
-  assert.deepEqual(v('version', false), { warning: null, normal: false, outdatedFlow: true });
-  assert.deepEqual(v('skipped', false), { warning: 'outdated', normal: false, outdatedFlow: false }, 'skipped: the warning');
-  assert.deepEqual(v('skipped', true), { warning: null, normal: true, outdatedFlow: false }, 'after OK: the normal page, no warning');
-  assert.deepEqual(limitedView({ connected: true }), { warning: null, normal: true, outdatedFlow: false }, 'a calculator on recent firmware: as before');
-  assert.deepEqual(limitedView({ connected: false }), { warning: null, normal: false, outdatedFlow: false });
-  const app = fs.readFileSync(pub('app.js'), 'utf8'), html = fs.readFileSync(pub('index.html'), 'utf8');
-  assert.match(html, /<button id="notice-ok" value="ok" class="primary big" data-i18n="warn\.ok">OK<\/button>/);
-  assert.match(app, /onClose: \(\) => \{\s*if \(st\.dfu !== conn\) return;[^}]*\s*st\.warned = true;/, 'OK (or Esc) dismisses it for this connection');
-  assert.match(app, /st\.warned = false;\s*\/\/ \(the very big warning: once per connection/, 'reset on each connection');
-  assert.match(app, /const full = view\.normal;\s*\$\('#s-apps'\)\.hidden = \$\('#s-new'\)\.hidden = \$\('#s-fw'\)\.hidden = !full;/, 'normal sections follow the view');
-});
-
-test('skipped: after OK, what can\'t work on that firmware says so; firmware still only through the confirm step', async () => {
-  assert.equal(limitedActionError().code, 'limited.outdated');
-  assert.equal(limitedFirmwareError('outdated', null).code, 'limited.outdatedFw', 'Check for updates: its own step only');
-  assert.throws(() => limitedFirmwareError('outdated', 'N0100'), (e) => e.code === 'calc.n0100.noFlash', 'and never the N0100');
-  assert.equal(limitedFirmwareError(null, 'N0120'), null);
-  // a skipped flow never flashes, OK or not
-  const { flow, flashed } = newFlow();
-  await flow.chooseModel('N0110');
-  flow.skip();
-  assert.equal(await flow.confirm(flow.selected), false);
-  assert.deepEqual(flashed, []);
+test('outdated: only its update step is shown, never the app sections; other calculators as before', () => {
+  assert.deepEqual(limitedView({ connected: true, limited: 'outdated' }), { normal: false, outdatedFlow: true });
+  assert.deepEqual(limitedView({ connected: true }), { normal: true, outdatedFlow: false }, 'Epsilon 16 or later: as before');
+  assert.deepEqual(limitedView({ connected: false }), { normal: false, outdatedFlow: false });
   const app = fs.readFileSync(pub('app.js'), 'utf8');
+  assert.match(app, /const full = view\.normal;\s*\$\('#s-apps'\)\.hidden = \$\('#s-new'\)\.hidden = \$\('#s-fw'\)\.hidden = !full;/, 'app sections hidden');
+  assert.ok(!/renderLimited|failLimited|limitedActionError|limitedFirmwareError/.test(app), 'no greyed-out app page left');
+  // the actions themselves still do nothing on it, if ever reached
   for (const [what, re] of [
-    ['Back up apps', /\$\('#backup-apps'\)\.addEventListener\('click', \(\) => job\('backup', async \(\) => \{\s*if \(st\.info\.limited\) throw limitedActionError/],
-    ['Back up files', /\$\('#backup-files'\)\.addEventListener\('click', \(\) => job\('backup', async \(\) => \{\s*if \(st\.info\.limited\) throw limitedActionError/],
-    ['Restore', /if \(!f\) return;\s*if \(st\.info\?\.limited\) \{ failLimited\('restore'\); return; \}/],
-    ['Install', /\$\('#install'\)\.addEventListener\('click', async \(\) => \{\s*if \(st\.info\?\.limited\) \{ failLimited\('install'\); return; \}/],
-    ['Check for updates', /if \(st\.info\.limited\) throw limitedFirmwareError\(st\.info\.limited, st\.info\.model\);/],
+    ['Back up apps', /\$\('#backup-apps'\)\.addEventListener\('click', \(\) => job\('backup', async \(\) => \{\s*if \(st\.info\.limited\) return;/],
+    ['Back up files', /\$\('#backup-files'\)\.addEventListener\('click', \(\) => job\('backup', async \(\) => \{\s*if \(st\.info\.limited\) return;/],
+    ['Restore', /if \(!f\) return;\s*if \(st\.info\?\.limited\) return;/],
+    ['Install', /\$\('#install'\)\.addEventListener\('click', async \(\) => \{\s*if \(st\.info\?\.limited\) return;/],
+    ['Check for updates', /assertFirmwareAllowed\(st\.info\.model\);\s*if \(st\.info\.limited\) return;/],
   ]) assert.match(app, re, what);
 });
 
@@ -287,7 +272,7 @@ test('i18n: every new string in English and French, translated', async () => {
   }
   for (const k of Object.keys(fr)) assert.ok(k in en, 'en: ' + k);
   assert.equal(fr['od.hint'], 'Le modèle exact est indiqué au dos de la calculatrice (par ex. N0110 ou N0115).');
-  for (const k of ['err.calc.n0100', 'warn.outdated.body', 'refuse.title']) assert.ok(!/'/.test(fr[k]), 'French apostrophes as in the rest of fr.js: ' + k);
+  for (const k of ['err.calc.n0100', 'od.sub', 'refuse.title']) assert.ok(!/'/.test(fr[k]), 'French apostrophes as in the rest of fr.js: ' + k);
   assert.match(en['err.calc.n0100'], /too old for this installer: it has no storage for \.nwa apps, and NumWorks has stopped updating it/);
   assert.match(fr['err.calc.n0100'], /trop ancienne pour cet installateur : elle n’a pas de place pour les applis \.nwa, et NumWorks a cessé de la mettre à jour/);
 });
@@ -496,7 +481,6 @@ test('theme: text stays readable in Latte and Mocha (WCAG 4.5:1)', () => {
     ['code and picked tiles', 'var(--text)', 'var(--accent-soft)'],
     ['primary buttons', 'var(--on-accent)', 'var(--accent)'], ['Write it (danger)', 'var(--on-accent)', 'var(--ctp-red)'],
     ['refusal pop-up', 'var(--ctp-text)', 'color-mix(in srgb, var(--ctp-red) 16%, var(--ctp-base))'],
-    ['skipped-update pop-up', 'var(--ctp-text)', 'color-mix(in srgb, var(--ctp-peach) 16%, var(--ctp-base))'],
     ['test-mode badge', 'var(--sim-label-fg)', 'var(--sim-label-bg)'],
     ['progress label on the track', 'var(--text)', 'var(--free)'], ['progress label on the fill', 'var(--text)', 'color-mix(in srgb, var(--accent) 30%, var(--ctp-base))'],
     ['app badges', 'var(--text)', 'var(--ctp-surface0)'],
@@ -515,7 +499,6 @@ test('theme: text stays readable in Latte and Mocha (WCAG 4.5:1)', () => {
   assert.match(src, /#status\.warn, \.warn \{ color: var\(--bad-text\); \}/);
   assert.match(src, /#status\.ok \{ color: var\(--ok\);/);
   assert.match(src, /dialog\.notice \{ --notice: var\(--ctp-red\);[^}]*background: color-mix\(in srgb, var\(--notice\) 16%, var\(--ctp-base\)\); color: var\(--ctp-text\); \}/);
-  assert.match(src, /dialog\.notice\[data-kind="outdated"\] \{ --notice: var\(--ctp-peach\); \}/);
   if (process.env.CONTRAST) console.log(report.join('\n'));
 });
 

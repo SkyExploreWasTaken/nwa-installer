@@ -13,14 +13,14 @@ import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
-import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, limitedActionError, limitedFirmwareError, refusalOf } from './lib/gate.js';
+import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, refusalOf } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 applyDom();
 initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null, warned: false, notice: null };
+const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null, outdated: null, notice: null };
 const T = (key, vars) => () => t(key, vars);  // a text to draw now and again on a language change
 // an error the page itself throws, with a code for its text (err.<code>) and the English message for the log
 const uiError = (code, params, message, cause) => new InstallerError(code, params, message, cause ? { cause } : undefined);
@@ -113,7 +113,6 @@ async function connect(dev) {
   if (st.dfu) await st.dfu.close();
   st.dev = dev;
   st.outdated = null;
-  st.warned = false;  // (the very big warning: once per connection, until its OK)
   st.dfu = SIM ? sim.simulatedDevice(SIM) : MOCK ? await (await import('./dev/mockdfu.js')).mockDevice() : new Dfu(dev);
   try {
     await st.dfu.open();
@@ -170,7 +169,7 @@ const modelLabel = (m) => (!m ? t('model.outdated') : m.startsWith('N0120_PORTUG
 // ------------------------------------------------------------------ backups and restore
 // (a limited calculator, lib/gate.js: these say why they can't, nothing read or written)
 $('#backup-apps').addEventListener('click', () => job('backup', async () => {
-  if (st.info.limited) throw limitedActionError(st.info.limited);
+  if (st.info.limited) return;  // (outdated firmware: no app area; its sections aren't shown)
   const i = st.info, end = Math.min(st.scan.freeStart + SECTOR, i.nwagraOk ? i.nwagraEnd : i.appsEnd);
   log(`Reading ${end - i.appsStart} bytes of apps…`);
   const data = await st.dfu.read(i.appsStart, end - i.appsStart, (p) => progress(p, 'progress.readingApps'));
@@ -180,7 +179,7 @@ $('#backup-apps').addEventListener('click', () => job('backup', async () => {
 }));
 
 $('#backup-files').addEventListener('click', () => job('backup', async () => {
-  if (st.info.limited) throw limitedActionError(st.info.limited);
+  if (st.info.limited) return;
   const raw = await st.dfu.read(st.info.storageAddress, st.info.storageSize);
   download(raw, `numworks-files-${stamp()}.bin`);
   log('Saved the files backup (' + (parseStorage(raw)?.files.length || 0) + ' files)');
@@ -190,7 +189,7 @@ $('#restore').addEventListener('change', async (ev) => {
   const f = ev.target.files[0];
   ev.target.value = '';
   if (!f) return;
-  if (st.info?.limited) { failLimited('restore'); return; }
+  if (st.info?.limited) return;
   const data = new Uint8Array(await f.arrayBuffer());
   const i = st.info;
   const m = /0x([0-9a-f]{8})/i.exec(f.name);
@@ -206,12 +205,6 @@ $('#restore').addEventListener('change', async (ev) => {
     await finish();
   });
 });
-
-function failLimited(name) {
-  const e = limitedActionError(st.info.limited);
-  log(name + ' failed: ' + e.message);
-  status(() => t('fail.' + name, { msg: errText(e) }), 'warn');
-}
 
 // ------------------------------------------------------------------ the apps to install
 $('#pick').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
@@ -266,7 +259,7 @@ function layout() {
 
 function render() {
   const on = !!st.info;
-  const view = limitedView({ connected: on, limited: st.info?.limited, outdatedStep: st.outdated?.step, dismissed: st.warned });
+  const view = limitedView({ connected: on, limited: st.info?.limited });
   const full = view.normal;
   $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !full;
   $('#info').hidden = !on;
@@ -281,7 +274,6 @@ function render() {
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
   add(t('info.model'), modelLabel(i.model));
   if (!full) return;
-  if (i.limited) { renderLimited(); return; }
   renderFirmware();
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
@@ -360,30 +352,6 @@ function drawQueue() {
   });
 }
 
-// a limited calculator once its warning is dismissed (lib/gate.js): the usual sections, saying what can't work on it
-function renderLimited() {
-  const why = t('limited.why.outdated');
-  st.fw = null;
-  $('#fw-box').hidden = true;
-  const ul = $('#installed');
-  ul.textContent = '';
-  ul.append(el('li', 'empty', t('apps.unavailable', { why })));
-  $('#files').textContent = '';
-  const nw = $('#nwagra');
-  nw.disabled = true;
-  nw.checked = false;
-  $('#nwagra-opt').classList.add('disabled');
-  $('#nwagra-note').textContent = t('opt.nwagra.no');
-  $('#keep').disabled = true;
-  $('#keep').closest('.opt').classList.add('disabled');
-  drawQueue();
-  $('#bar').textContent = '';
-  $('#legend').textContent = '';
-  $('#plan').textContent = st.queue.length ? t('apps.unavailable', { why }) : '';
-  $('#install').disabled = st.busy || !st.queue.length;  // (clicking says why it can't)
-  numplay.render();
-}
-
 // ------------------------------------------------------------------ installing
 // text: T(...), so an open dialog follows a language change
 function confirmDialog(text) {
@@ -398,7 +366,7 @@ function confirmDialog(text) {
 }
 
 $('#install').addEventListener('click', async () => {
-  if (st.info?.limited) { failLimited('install'); return; }
+  if (st.info?.limited) return;
   const i = st.info, L = layout();
   const keep = $('#keep').checked && st.scan.apps.length > 0;
   let plan;
@@ -445,7 +413,7 @@ $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
   if (!st.info) return;
   assertFirmwareAllowed(st.info.model);
-  if (st.info.limited) throw limitedFirmwareError(st.info.limited, st.info.model);
+  if (st.info.limited) return;  // (outdated firmware: only through its own update step)
   // (a guessed model could be the wrong one: an N0115 can look like an N0110, and its firmware is not the same)
   const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup(T('fw.needServer')); return; }
@@ -606,8 +574,7 @@ $('#fw-install').addEventListener('click', async () => {
 });
 
 // ------------------------------------------------------------------ half-supported calculators (lib/gate.js)
-// The pop-up (a modal <dialog>, #notice): a refused calculator, or, once per connection, the warning for an outdated
-// N0110/N0115 whose update was skipped. n: { kind: 'refusal' | 'outdated', title: T(...), text: T(...), onClose }.
+// The pop-up (a modal <dialog>, #notice) for a refused calculator. n: { kind: 'refusal', title: T(...), text: T(...), onClose }.
 // Its OK, Esc or the close button all close it; Tab stays on its OK (the page behind is inert while it's open).
 function showNotice(n) {
   const d = $('#notice');
@@ -683,7 +650,7 @@ const outdatedFlasher = pickFlasher({ simulate: SIM, real: flashOutdated,
 
 function drawOutdated() {
   const f = st.outdated;
-  $('#s-outdated').hidden = !limitedView({ connected: !!st.info, limited: st.info?.limited, outdatedStep: f?.step }).outdatedFlow;
+  $('#s-outdated').hidden = !f || !limitedView({ connected: !!st.info, limited: st.info?.limited }).outdatedFlow;
   if (!f) return;
   const locked = st.busy || f.step === 'flashing' || f.step === 'done';
   for (const b of document.querySelectorAll('.od-pick')) {
@@ -712,26 +679,21 @@ function drawOutdated() {
   const u = $('#od-update');
   u.textContent = picked ? t('fw.updateTo', { version: picked.version }) : t('fw.install');
   u.disabled = locked || !choosing || !picked;
-  $('#od-skip').disabled = locked;
+  $('#od-cancel').disabled = locked;
 }
 
 for (const b of document.querySelectorAll('.od-pick')) b.addEventListener('click', () => {
   st.outdated?.chooseModel(b.dataset.model).catch((e) => log('Model: ' + e.message));
 });
 $('#od-version').addEventListener('change', (e) => st.outdated?.select(e.target.value));
-$('#od-skip').addEventListener('click', () => {
-  if (!st.outdated?.skip()) return;
-  log('Update skipped: nothing written. This firmware is not really supported by this installer.');
-  // the warning, once per connection; its OK: the page as for any calculator
-  if (limitedView({ connected: !!st.info, limited: st.info?.limited, outdatedStep: st.outdated.step, dismissed: st.warned }).warning) {
-    const conn = st.dfu;
-    showNotice({ kind: 'outdated', title: T('warn.outdated.title'), text: T('warn.outdated.body'), onClose: () => {
-      if (st.dfu !== conn) return;  // (unplugged meanwhile)
-      st.warned = true;
-      log('Warning read (OK): the page as usual; what this calculator cannot do says so.');
-      render();
-    } });
-  }
+// Cancel: no update; nothing written, the calculator let go, the page back to not connected
+$('#od-cancel').addEventListener('click', async () => {
+  if (!st.outdated?.cancel()) return;
+  log('Update cancelled: nothing written.');
+  await st.dfu?.close().catch(() => {});
+  st.dev = st.dfu = st.info = st.scan = st.outdated = null;
+  status(T('connect.hint'));
+  render();
 });
 $('#od-update').addEventListener('click', async () => {
   const f = st.outdated;

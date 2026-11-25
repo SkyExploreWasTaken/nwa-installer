@@ -310,10 +310,9 @@ dialog p { color: var(--muted); font-size: 14px; }
 [hidden] { display: none !important; }
 
 /* the pop-up: a refused calculator, or the warning after Skip update (app.js showNotice) */
-/* a refusal in Red, the skipped-update warning in Peach: a thick border and a tinted background, the text in Text */
+/* a refusal, in Red: a thick border and a tinted background, the text in Text */
 dialog.notice { --notice: var(--ctp-red); max-width: min(560px, calc(100vw - 24px)); box-sizing: border-box; border: 4px solid var(--notice);
   background: color-mix(in srgb, var(--notice) 16%, var(--ctp-base)); color: var(--ctp-text); }
-dialog.notice[data-kind="outdated"] { --notice: var(--ctp-peach); }
 dialog.notice h2 { margin: 0 0 8px; font-size: 24px; line-height: 1.2; color: var(--ctp-text); }
 dialog.notice p { margin: 0; font-size: 17px; line-height: 1.45; font-weight: 600; color: var(--ctp-text); }
 .notice-icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 14px;

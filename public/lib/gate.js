@@ -4,12 +4,12 @@
 //  - The N0100: refused when it connects (model.js, calc.js): too old, no external flash so no app area for .nwa apps,
 //    and NumWorks stopped updating it. No firmware is ever written to it either (assertFirmwareAllowed, checked by
 //    every firmware path, and the server never keeps N0100 firmware).
-//  - An N0110 or N0115 on outdated firmware (it shows USB version 1.0.0 and can't say which of the two it is): never
-//    updated by itself. OutdatedFlow makes the user pick the model printed on the back, then lists every firmware this
-//    computer keeps for that model (oldest first, the oldest picked), and flashes only after an explicit confirm of
-//    the version shown. The user may skip instead: nothing is written, and the page shows a very big warning once;
-//    after its OK (limitedView), the usual page, where what can't work on that firmware says so (limitedActionError)
-//    instead of pretending. Updating it later: connect again, pick, confirm.
+//  - An N0110 or N0115 on outdated firmware (Epsilon 15 or older: it shows USB version 1.0.0 and can't say which of
+//    the two it is). That firmware has no space for .nwa apps at all (apps came with Epsilon 16's kernel/userland
+//    headers), so the only thing to do with it is update it, and never by itself: OutdatedFlow makes the user pick the
+//    model printed on the back, then lists every firmware this computer keeps for that model (oldest first, the oldest
+//    picked), and flashes only after an explicit confirm of the version shown. Cancel flashes nothing and lets the
+//    calculator go (the page is back to not connected).
 import { InstallerError } from './errors.js';
 import { compareVersions } from './fwchoice.js';
 
@@ -37,10 +37,10 @@ export function cachedVersions(info) {
 //   'model'    pick N0110 or N0115 (chooseModel)
 //   'loading'  reading what this computer keeps for it
 //   'version'  options listed (oldest first), selected = the oldest; select() another; confirm(version) flashes it
-//   'none'     nothing kept for that model: nothing can be flashed (chooseModel again, or skip)
-//   'error'    the list could not be read (error); chooseModel again, or skip
+//   'none'     nothing kept for that model: nothing can be flashed (chooseModel again, or cancel)
+//   'error'    the list could not be read (error); chooseModel again, or cancel
 //   'flashing' -> 'done' (or 'error' when the flash failed)
-//   'skipped'  the user chose not to update: nothing is ever flashed from here on
+//   'cancelled' the user cancelled: nothing is ever flashed from here on
 // loadInfo(model) -> /api/firmware/<model>.json; flash(model, option) does the writing (only ever called by confirm).
 export class OutdatedFlow {
   constructor({ loadInfo, flash, onChange = () => {} }) {
@@ -55,7 +55,7 @@ export class OutdatedFlow {
   set(changes) { Object.assign(this, changes); this.onChange(this); }
 
   async chooseModel(model) {
-    if (this.step === 'skipped' || this.step === 'flashing' || this.step === 'done') return;
+    if (this.step === 'cancelled' || this.step === 'flashing' || this.step === 'done') return;
     if (!OUTDATED_MODELS.includes(model)) throw new InstallerError('gate.badModel', { model }, 'Pick N0110 or N0115');
     this.set({ step: 'loading', model, options: [], selected: null, error: null });
     let options;
@@ -63,7 +63,7 @@ export class OutdatedFlow {
       if (this.model === model && this.step === 'loading') this.set({ step: 'error', error: e });
       return;
     }
-    if (this.model !== model || this.step !== 'loading') return;  // (another model was picked meanwhile, or skipped)
+    if (this.model !== model || this.step !== 'loading') return;  // (another model was picked meanwhile, or cancelled)
     this.set(options.length ? { step: 'version', options, selected: options[0].version } : { step: 'none' });
   }
 
@@ -73,9 +73,10 @@ export class OutdatedFlow {
     return true;
   }
 
-  skip() {
+  // Cancel: no update. Nothing is flashed, then or later (the page lets the calculator go)
+  cancel() {
     if (this.step === 'flashing' || this.step === 'done') return false;
-    this.set({ step: 'skipped', options: [], selected: null });
+    this.set({ step: 'cancelled', options: [], selected: null });
     return true;
   }
 
@@ -113,26 +114,9 @@ export function refusalOf(code) {
   return null;
 }
 
-// What the page shows for the calculator connected now:
-//   warning: 'outdated' | null  the warning pop-up after Skip update, until its OK (dismissed, once per connection)
-//   normal: the usual sections (apps, install, software)   outdatedFlow: the outdated N0110/N0115 model/version step
-export function limitedView({ connected, limited = null, outdatedStep = null, dismissed = false }) {
-  if (!connected) return { warning: null, normal: false, outdatedFlow: false };
-  if (!limited) return { warning: null, normal: true, outdatedFlow: false };
-  const skipped = limited === 'outdated' && outdatedStep === 'skipped';
-  return { warning: skipped && !dismissed ? 'outdated' : null, normal: skipped && dismissed, outdatedFlow: limited === 'outdated' && !skipped };
-}
-
-// what an app or backup action says on outdated firmware (Epsilon 15 or older), whose missing bootloader headers
-// would say where its apps and files are: nothing is read or written
-export function limitedActionError() {
-  return new InstallerError('limited.outdated', {}, "Not possible with this calculator's outdated firmware: it does not say where its apps and files are. Connect again and update it first.");
-}
-
-// Check for updates on outdated firmware: only through its own update step (its model is unknown here); and never
-// for the N0100 (assertFirmwareAllowed)
-export function limitedFirmwareError(limited, model) {
-  assertFirmwareAllowed(model);
-  if (limited === 'outdated') return new InstallerError('limited.outdatedFw', {}, "This calculator's firmware is outdated and its model unknown: connect again, pick its model and a version, and confirm.");
-  return null;
+// What the page shows for the calculator connected now: the usual sections (apps, install, software) for a calculator
+// on Epsilon 16 or later; for outdated firmware only its update step (model, version, confirm, or Cancel)
+export function limitedView({ connected, limited = null }) {
+  if (!connected) return { normal: false, outdatedFlow: false };
+  return { normal: !limited, outdatedFlow: limited === 'outdated' };
 }
