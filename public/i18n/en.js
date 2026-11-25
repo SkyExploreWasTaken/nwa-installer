@@ -225,4 +225,23 @@ export default {
   'err.roms.system': 'Retro-Go plays {systems} games',
   'err.roms.badLz4': 'a broken LZ4 file',
   'err.storage.full': 'The files do not fit in the calculator storage',
+
+  // ---- errors from the local server (server.js, numworks.js, numplay.js: { error, code, params })
+  'err.server.noApi': 'No such API',
+  'err.nw.badJson': 'numworks-account.json is not valid JSON',
+  'err.nw.badJsonAt': 'numworks-account.json is not valid JSON ({where})',
+  'err.nw.needsFields': 'numworks-account.json needs an "email" and a "password"',
+  'err.nw.unreachable': 'Could not reach my.numworks.com: {msg}',
+  'err.nw.noAccount': 'No numworks-account.json next to server.js (see README)',
+  'err.nw.signInChanged': "my.numworks.com's sign-in page has changed (HTTP {status})",
+  'err.nw.badLogin': 'my.numworks.com did not accept the email and password in numworks-account.json',
+  'err.nw.signedOut': 'my.numworks.com signed the account out again right after signing in',
+  'err.nw.upgradeHttp': 'my.numworks.com/devices/upgrade: HTTP {status}',
+  'err.nw.noVersion': 'Could not find the firmware version on my.numworks.com/devices/upgrade',
+  'err.nw.unknownModel': 'Unknown model {model}',
+  'err.nw.badVersion': 'Bad version',
+  'err.nw.firmwareHttp': 'my.numworks.com: HTTP {status} for {file}',
+  'err.nw.notJson': 'my.numworks.com did not send JSON for {model}',
+  'err.numplay.offline': "NumPlay's site is not reachable and no copy of {file} is kept",
+  'err.numplay.fetch': "Could not get NumPlay's files: {msg}",
 };

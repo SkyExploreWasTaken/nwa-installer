@@ -18,9 +18,12 @@ const jar = new Map();  // the session's cookies, name -> value
 let signedIn = false;
 let signingIn = null;   // the sign-in under way, shared by the requests waiting on it
 
+// status: the HTTP status to answer with; code and params: what the page shows, in its language (err.<code> in
+// public/i18n/), sent next to the English message as { error, code, params }
 class HttpError extends Error {
-  constructor(code, message) { super(message); this.code = code; }
+  constructor(status, message, code, params = {}) { super(message); this.status = status; this.i18n = { code, params }; }
 }
+const fail = (message, code, params = {}) => ({ error: message, code, params });
 
 // { email, password } from numworks-account.json, or null when there's none
 function account() {
@@ -29,10 +32,10 @@ function account() {
   try { a = JSON.parse(fs.readFileSync(ACCOUNT_FILE, 'utf8')); } catch (e) {
     // JSON.parse's message can quote the file (the password with it): give only where the error is
     const where = /at position \d+(?: \(line \d+ column \d+\))?/.exec(e.message);
-    throw new HttpError(500, 'numworks-account.json is not valid JSON' + (where ? ' (' + where[0] + ')' : ''));
+    throw new HttpError(500, 'numworks-account.json is not valid JSON' + (where ? ' (' + where[0] + ')' : ''), where ? 'nw.badJsonAt' : 'nw.badJson', { where: where?.[0] });
   }
   if (!a || typeof a.email !== 'string' || typeof a.password !== 'string' || !a.email || !a.password)
-    throw new HttpError(500, 'numworks-account.json needs an "email" and a "password"');
+    throw new HttpError(500, 'numworks-account.json needs an "email" and a "password"', 'nw.needsFields');
   return a;
 }
 
@@ -68,7 +71,7 @@ function request(method, p, { accept = '*/*', form } = {}) {
 async function retried(...args) {
   for (let i = 1; ; i++) {
     try { return await request(...args); } catch (e) {
-      if (i >= RETRIES) throw new HttpError(502, 'Could not reach my.numworks.com: ' + e.message);
+      if (i >= RETRIES) throw new HttpError(502, 'Could not reach my.numworks.com: ' + e.message, 'nw.unreachable', { msg: e.message });
     }
   }
 }
@@ -79,17 +82,17 @@ const toSignIn = (r) => r.status === 401 || (r.status >= 300 && r.status < 400 &
 // It answers a redirect when that worked, and the form again when it didn't.
 async function signIn() {
   const a = account();
-  if (!a) throw new HttpError(412, 'No numworks-account.json next to server.js (see README)');
+  if (!a) throw new HttpError(412, 'No numworks-account.json next to server.js (see README)', 'nw.noAccount');
   signedIn = false;
   jar.clear();
   const page = await retried('GET', '/users/sign_in', { accept: 'text/html' });
   const html = page.body.toString('utf8');
   const token = /name="authenticity_token"[^>]*value="([^"]+)"/.exec(html) || /name="csrf-token"[^>]*content="([^"]+)"/.exec(html);
-  if (page.status !== 200 || !token) throw new HttpError(502, 'my.numworks.com\'s sign-in page has changed (HTTP ' + page.status + ')');
+  if (page.status !== 200 || !token) throw new HttpError(502, 'my.numworks.com\'s sign-in page has changed (HTTP ' + page.status + ')', 'nw.signInChanged', { status: page.status });
   const r = await retried('POST', '/users/sign_in', { accept: 'text/html', form: {
     authenticity_token: token[1].replace(/&#x2F;/g, '/').replace(/&amp;/g, '&'), 'user[email]': a.email, 'user[password]': a.password } });
   if (!(r.status >= 300 && r.status < 400) || toSignIn(r))
-    throw new HttpError(401, 'my.numworks.com did not accept the email and password in numworks-account.json');
+    throw new HttpError(401, 'my.numworks.com did not accept the email and password in numworks-account.json', 'nw.badLogin');
   signedIn = true;
 }
 
@@ -104,29 +107,29 @@ async function get(p, accept) {
     await ensureSignedIn(attempt > 0);
     const r = await retried('GET', p, { accept });
     if (!toSignIn(r)) return r;
-    if (attempt) throw new HttpError(401, 'my.numworks.com signed the account out again right after signing in');
+    if (attempt) throw new HttpError(401, 'my.numworks.com signed the account out again right after signing in', 'nw.signedOut');
   }
 }
 
 // the version NumWorks' updater page offers now: its `flash` setting, in the page's HTML ("stable" for most accounts)
 async function latestVersion() {
   const r = await get('/devices/upgrade', 'text/html');
-  if (r.status !== 200) throw new HttpError(502, 'my.numworks.com/devices/upgrade: HTTP ' + r.status);
+  if (r.status !== 200) throw new HttpError(502, 'my.numworks.com/devices/upgrade: HTTP ' + r.status, 'nw.upgradeHttp', { status: r.status });
   const html = r.body.toString('utf8').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
   const m = /[\s:"']flash["']?\s*[=:]\s*["']*([0-9A-Za-z._-]+)/.exec(html);
-  if (!m) throw new HttpError(502, 'Could not find the firmware version on my.numworks.com/devices/upgrade');
+  if (!m) throw new HttpError(502, 'Could not find the firmware version on my.numworks.com/devices/upgrade', 'nw.noVersion');
   return m[1];
 }
 
 async function firmware(res, model, ext, version, send) {
-  if (!MODELS.has(model)) return send(res, 400, { error: 'Unknown model ' + model });
-  if (version && !/^[0-9A-Za-z._-]{1,40}$/.test(version)) return send(res, 400, { error: 'Bad version' });
+  if (!MODELS.has(model)) return send(res, 400, fail('Unknown model ' + model, 'nw.unknownModel', { model }));
+  if (version && !/^[0-9A-Za-z._-]{1,40}$/.test(version)) return send(res, 400, fail('Bad version', 'nw.badVersion'));
   const v = version || await latestVersion();
   const r = await get(`/firmwares/${model}/${encodeURIComponent(v)}.${ext}`, ext === 'json' ? 'application/json' : 'application/octet-stream');
-  if (r.status !== 200) return send(res, r.status === 404 ? 404 : 502, { error: `my.numworks.com: HTTP ${r.status} for ${model} ${v}.${ext}` });
+  if (r.status !== 200) return send(res, r.status === 404 ? 404 : 502, fail(`my.numworks.com: HTTP ${r.status} for ${model} ${v}.${ext}`, 'nw.firmwareHttp', { status: r.status, file: `${model} ${v}.${ext}` }));
   if (ext === 'json') {
     let info;
-    try { info = JSON.parse(r.body.toString('utf8')); } catch { return send(res, 502, { error: 'my.numworks.com did not send JSON for ' + model }); }
+    try { info = JSON.parse(r.body.toString('utf8')); } catch { return send(res, 502, fail('my.numworks.com did not send JSON for ' + model, 'nw.notJson', { model })); }
     return send(res, 200, { name: v, ...info });
   }
   res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': r.body.length, 'Cache-Control': 'no-store',
@@ -144,7 +147,7 @@ async function handle(req, res, url, send) {
 
 // for /api/status: whether there's an account to sign in with (it isn't tried until the page asks for firmware)
 function status() {
-  try { return { account: !!account() }; } catch (e) { return { account: false, error: e.message }; }
+  try { return { account: !!account() }; } catch (e) { return { account: false, error: e.message, ...e.i18n }; }
 }
 
 module.exports = { handle, status };

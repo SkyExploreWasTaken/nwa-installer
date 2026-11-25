@@ -21,11 +21,16 @@ const PROVIDED = /^(eadk_|_heap_end$|_data_section_|_bss_section_|np_keyboard_sc
 const align4 = (n) => (n + 3) & ~3;
 
 // ------------------------------------------------------------------ fetching the kit
+// a failed fetch: the server's { error, code, params } when it sent one, else the HTTP status
+async function httpError(path, r) {
+  const j = await r.clone().json().catch(() => null);
+  return j?.code ? new InstallerError(j.code, j.params || {}, j.error) : new InstallerError('net.http', { file: path, status: r.status }, path + ': HTTP ' + r.status);
+}
 const cache = new Map();
 function fetchBytes(path) {
   if (!cache.has(path)) {
     const p = fetch(path).then(async (r) => {
-      if (!r.ok) throw new InstallerError('net.http', { file: path, status: r.status }, path + ': HTTP ' + r.status);
+      if (!r.ok) throw await httpError(path, r);
       const body = path.endsWith('.gz') ? r.body.pipeThrough(new DecompressionStream('gzip')) : r.body;
       return new Uint8Array(await new Response(body).arrayBuffer());
     });
@@ -34,7 +39,7 @@ function fetchBytes(path) {
   }
   return cache.get(path);
 }
-const fetchJson = (path) => fetch(path).then((r) => { if (!r.ok) throw new InstallerError('net.http', { file: path, status: r.status }, path + ': HTTP ' + r.status); return r.json(); });
+const fetchJson = (path) => fetch(path).then(async (r) => { if (!r.ok) throw await httpError(path, r); return r.json(); });
 
 // NumPlay's own scripts, loaded as NumPlay Studio loads them: each sets a global (npApps, npPico)
 const scripts = {};

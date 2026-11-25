@@ -46,8 +46,12 @@ async function numplayFile(rel) {
     } catch (e) { /* try again, then fall back on the kept copy */ }
   }
   if (fs.existsSync(file)) return fs.readFileSync(file);
-  throw new Error('NumPlay\'s site is not reachable and no copy of ' + rel + ' is kept');
+  throw Object.assign(new Error('NumPlay\'s site is not reachable and no copy of ' + rel + ' is kept'), { i18n: { code: 'numplay.offline', params: { file: rel } } });
 }
+
+// an error for the page: the English message with a code it can say in its language (err.<code> in public/i18n/)
+const replyError = (res, status, message, code, params = {}) =>
+  reply(res, status, JSON.stringify({ error: message, code, params }), 'application/json');
 
 function reply(res, status, body, type = 'text/plain; charset=utf-8') {
   const b = Buffer.isBuffer(body) ? body : Buffer.from(body);
@@ -75,7 +79,7 @@ module.exports = async function numplay(req, res, url) {
       if (!body) reply(res, 404, 'Not found');
       else reply(res, 200, body, TYPES[path.extname(rel)] || 'application/octet-stream');
     } catch (e) {
-      reply(res, 502, e.message);
+      replyError(res, 502, e.message, e.i18n?.code || 'numplay.fetch', e.i18n?.params || { msg: e.message });
     }
   } else {
     reply(res, 404, 'Not found');

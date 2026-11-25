@@ -53,13 +53,14 @@ const server = http.createServer(async (req, res) => {
       if (site && site !== 'same-origin') { res.writeHead(403); return res.end(); }
       if (url.pathname === '/api/status') return send(res, 200, numworks.status());
       if (await numworks.handle(req, res, url, send)) return;
-      return send(res, 404, { error: 'No such API' });
+      return send(res, 404, { error: 'No such API', code: 'server.noApi', params: {} });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
     if (await numplay(req, res, url)) return;
     serveFile(req, res, url.pathname);
   } catch (e) {
-    send(res, e.code >= 400 ? e.code : 502, { error: e.message });
+    // (an HttpError carries its status and, for the page, { code, params }; logs and error stay English)
+    send(res, e.status >= 400 ? e.status : 502, { error: e.message, ...e.i18n });
   }
 });
 server.listen(PORT, '127.0.0.1', () => {
