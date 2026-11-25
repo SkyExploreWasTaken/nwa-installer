@@ -1,31 +1,53 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The installer page: connect over WebUSB, show what's on the calculator, add .nwa files, install.
+// Text the page shows comes from i18n/ (t()); the log stays in English, for bug reports. Everything this file draws
+// is kept as a function of the state (status, progress, firmware note, the confirm dialog), so switching language
+// redraws it in place: see 'langchange' at the end.
 import { Dfu } from './lib/dfu.js';
 import { readInfo, scanApps, parseAppHeader, hex, SECTOR, SLOT_B } from './lib/calc.js';
 import { loadTools, inspectNwa } from './lib/link.js';
-import { planInstall, writeInstall, mb } from './lib/install.js';
+import { planInstall, writeInstall } from './lib/install.js';
 import { parseStorage, buildStorage } from './lib/storage.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { initNumPlay } from './numplay-ui.js';
-import { applyDom, initLangSelect } from './i18n/index.js';
+import { t, errText, size as kb, mb, applyDom, initLangSelect } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 applyDom();
 initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false };
+const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false, status: null, fwSetup: null };
+const T = (key, vars) => () => t(key, vars);  // a text to draw now and again on a language change
+// an error the page itself throws, with a code for its text (err.<code>) and the English message for the log
+const uiError = (code, params, message, cause) => Object.assign(new Error(message, cause ? { cause } : undefined), { code, params });
+// an error the local server sent: { error, code?, params? }
+const serverError = (j, httpStatus) => j.code ? uiError(j.code, j.params || {}, j.error)
+  : j.error ? new Error(j.error) : uiError('http', { status: httpStatus }, 'HTTP ' + httpStatus);
 
 function log(msg) {
-  const t = new Date().toLocaleTimeString();
-  $('#log').textContent += `[${t}] ${msg}\n`;
+  const time = new Date().toLocaleTimeString();
+  $('#log').textContent += `[${time}] ${msg}\n`;
   $('#log').scrollTop = 1e9;
 }
-function status(msg, kind = '') { const s = $('#status'); s.textContent = msg; s.className = kind || 'muted'; }
-function progress(p, label, box = $('#progress')) {
+// the line under "Calculator": text is a string or T(...), kept to redraw on a language change
+function status(text, kind = '') { st.status = { text, kind }; drawStatus(); }
+function drawStatus() {
+  if (!st.status) return;  // (the page's own text until something happens)
+  const s = $('#status'), { text, kind } = st.status;
+  s.textContent = typeof text === 'function' ? text() : text;
+  s.className = kind || 'muted';
+}
+// a progress bar: label is a key, given { pct } and vars
+function progress(p, label = 'progress.pct', vars = {}, box = $('#progress')) {
   box.hidden = p == null;
-  if (p == null) return;
+  box._state = p == null ? null : { p, label, vars };
+  drawProgress(box);
+}
+function drawProgress(box) {
+  if (!box._state) return;
+  const { p, label, vars } = box._state;
   box.querySelector('div').style.width = (p * 100).toFixed(1) + '%';
-  box.querySelector('span').textContent = label || (p * 100).toFixed(0) + '%';
+  box.querySelector('span').textContent = t(label, { ...vars, pct: Math.round(p * 100) });
 }
 function download(bytes, name) {
   const a = el('a');
@@ -35,34 +57,33 @@ function download(bytes, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 const stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
-const kb = (n) => n < 1048576 ? Math.round(n / 1024) + ' KB' : mb(n);
 const sectors = (n) => Math.ceil(n / SECTOR) * SECTOR;
 
-// one USB job at a time
+// one USB job at a time; name: 'connect', 'backup', ... (fail.<name> is its error line)
 async function job(name, fn) {
   if (st.busy) return;
   st.busy = true;
   render();
   try { return await fn(); } catch (e) {
     log(name + ' failed: ' + (e.message || e));
-    status(name + ' failed: ' + (e.message || e), 'warn');
+    status(() => t('fail.' + name, { msg: errText(e) }), 'warn');
     console.error(e);
   } finally { st.busy = false; render(); }
 }
 
 // ------------------------------------------------------------------ connecting
 if (!('usb' in navigator)) {
-  status('This browser has no WebUSB. Open this page in Chrome or Edge.', 'warn');
+  status(T('connect.noWebUsb'), 'warn');
   $('#connect').disabled = true;
 }
 
 const MOCK = new URLSearchParams(location.search).has('mock');  // a pretend calculator, for testing (dev/mockdfu.js)
 
-$('#connect').addEventListener('click', () => job('Connecting', async () => {
+$('#connect').addEventListener('click', () => job('connect', async () => {
   if (MOCK) return connect(null);
   let dev;
   try { dev = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0483 }] }); } catch (e) {
-    if (e.name === 'NotFoundError') { status('No calculator picked. Plug it in, unlock it and try again.'); return; }
+    if (e.name === 'NotFoundError') { status(T('connect.nonePicked')); return; }
     throw e;
   }
   await connect(dev);
@@ -75,17 +96,17 @@ async function connect(dev) {
   try {
     await st.dfu.open();
     if (MOCK) dev = { productName: st.dfu.productName };
-    status('Reading the calculator…');
+    status(T('connect.reading'));
     st.info = await readInfo(st.dfu);
   } catch (e) {
     // let go of the calculator, so a new try (or another program) can have it
     await st.dfu.close().catch(() => {});
     st.dev = st.dfu = st.info = st.scan = null;
-    throw new Error(e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.');
+    throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
   }
   log(`Connected: ${st.info.model}, Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
   await rescan();
-  status(`Connected to ${dev.productName || 'NumWorks'} (${st.info.model})`, 'ok');
+  status(T('connect.ok', { name: dev.productName || 'NumWorks', model: st.info.model }), 'ok');
   loadTools().catch((e) => log('Linker: ' + e.message));
 }
 
@@ -100,23 +121,23 @@ async function rescan() {
 navigator.usb?.addEventListener('disconnect', (e) => {
   if (e.device === st.dev) {
     st.dev = st.dfu = st.info = st.scan = null;
-    status('Calculator disconnected.');
+    status(T('connect.unplugged'));
     log('Calculator disconnected');
     render();
   }
 });
 
 // ------------------------------------------------------------------ backups and restore
-$('#backup-apps').addEventListener('click', () => job('Backup', async () => {
+$('#backup-apps').addEventListener('click', () => job('backup', async () => {
   const i = st.info, end = Math.min(st.scan.freeStart + SECTOR, i.nwagraOk ? i.nwagraEnd : i.appsEnd);
-  log(`Reading ${kb(end - i.appsStart)} of apps…`);
-  const data = await st.dfu.read(i.appsStart, end - i.appsStart, (p) => progress(p, 'Reading apps ' + (p * 100).toFixed(0) + '%'));
+  log(`Reading ${end - i.appsStart} bytes of apps…`);
+  const data = await st.dfu.read(i.appsStart, end - i.appsStart, (p) => progress(p, 'progress.readingApps'));
   download(data, `numworks-apps-${hex(i.appsStart)}-${stamp()}.bin`);
   progress(null);
   log('Saved the app area backup');
 }));
 
-$('#backup-files').addEventListener('click', () => job('Backup', async () => {
+$('#backup-files').addEventListener('click', () => job('backup', async () => {
   const raw = await st.dfu.read(st.info.storageAddress, st.info.storageSize);
   download(raw, `numworks-files-${stamp()}.bin`);
   log('Saved the files backup (' + (parseStorage(raw)?.files.length || 0) + ' files)');
@@ -129,14 +150,14 @@ $('#restore').addEventListener('change', async (ev) => {
   const data = new Uint8Array(await f.arrayBuffer());
   const i = st.info;
   const m = /0x([0-9a-f]{8})/i.exec(f.name);
-  if (m && parseInt(m[1], 16) !== i.appsStart) { alert(`That backup is of an app area at 0x${m[1]}, this calculator's starts at ${hex(i.appsStart)}.`); return; }
+  if (m && parseInt(m[1], 16) !== i.appsStart) { alert(t('restore.otherArea', { theirs: '0x' + m[1], ours: hex(i.appsStart) })); return; }
   const allFF = data.subarray(0, 32).every((b) => b === 0xff);
-  if (!parseAppHeader(data.subarray(0, 32), i.appsStart) && !allFF) { alert('That file is not an app area backup.'); return; }
+  if (!parseAppHeader(data.subarray(0, 32), i.appsStart) && !allFF) { alert(t('restore.notBackup')); return; }
   const end = i.nwagraOk ? i.nwagraEnd : i.appsEnd;
-  if (data.length % SECTOR || i.appsStart + data.length > end) { alert('That backup doesn\'t fit this calculator\'s app area.'); return; }
-  if (!await confirmDialog(`Write ${f.name} (${kb(data.length)}) over the app area? The apps on the calculator now are replaced by the ones in the backup.`)) return;
-  await job('Restore', async () => {
-    await st.dfu.write(i.appsStart, data, (p) => progress(p, 'Writing ' + (p * 100).toFixed(0) + '%'));
+  if (data.length % SECTOR || i.appsStart + data.length > end) { alert(t('restore.noFit')); return; }
+  if (!await confirmDialog(T('restore.confirm', { file: f.name, size: data.length }))) return;
+  await job('restore', async () => {
+    await st.dfu.write(i.appsStart, data, (p) => progress(p, 'progress.writing'));
     log('Restored the app area from ' + f.name);
     await finish();
   });
@@ -168,9 +189,9 @@ async function inspect(item) {
       : { flashStart: 0x90200000, flashLength: 0x600000, ramStart: 0x20000000, ramLength: 0x40000, trampoline: 0x90010030 };
     const r = await inspectNwa(item.nwa, mem, item.data);
     Object.assign(item, { size: r.size, needsData: r.needsData, name: r.name || item.name, error: null });
-    log(`${item.file}: "${item.name}", ${item.size ? kb(sectors(item.size)) + ' installed' : 'needs an external data file'}`);
+    log(`${item.file}: "${item.name}", ${item.size ? sectors(item.size) + ' bytes installed' : 'needs an external data file'}`);
   } catch (e) {
-    item.error = String(e.message || e).split('\n')[0];
+    item.error = e;  // (drawn with errText, first line only)
     log(item.file + ': ' + e.message);
   }
   render();
@@ -197,7 +218,7 @@ function render() {
   const on = !!st.info;
   $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !on;
   $('#info').hidden = !on;
-  $('#connect').textContent = on ? 'Reconnect' : 'Connect calculator';
+  $('#connect').textContent = t(on ? 'connect.again' : 'connect.button');
   for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on);
   if (!on) return;
   const i = st.info;
@@ -206,48 +227,50 @@ function render() {
   const info = $('#info');
   info.textContent = '';
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
-  add('Model', i.model);
-  add('Software', `Epsilon ${i.version} (${i.patch}), slot ${i.slot}`);
-  add('App area', `${hex(i.appsStart)} – ${hex(i.appsEnd)}, ${mb(i.appsEnd - i.appsStart)}`);
-  add('With Nwagra', i.nwagraOk ? `${hex(i.appsStart)} – ${hex(i.nwagraEnd)}, ${mb(i.nwagraEnd - i.appsStart)}` : 'not possible (the calculator runs from its second slot)');
+  add(t('info.model'), i.model);
+  add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
+  add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
+  add(t('info.nwagra'), i.nwagraOk ? t('info.areaVal', { start: hex(i.appsStart), end: hex(i.nwagraEnd), size: i.nwagraEnd - i.appsStart }) : t('info.nwagraNo'));
 
   const ul = $('#installed');
   ul.textContent = '';
-  if (!st.scan.apps.length) ul.append(el('li', 'empty', 'No apps installed.'));
+  if (!st.scan.apps.length) ul.append(el('li', 'empty', t('apps.none')));
   for (const a of st.scan.apps) {
     const li = el('li');
-    li.append(el('span', 'badge', a.name.slice(0, 1).toUpperCase()), el('span', 'name', a.name), el('span', 'meta', `${kb(a.sectors * SECTOR)} at ${hex(a.address)}`));
-    if (a.address + a.size > i.appsEnd) li.append(el('span', 'warn', 'runs past the app area (Nwagra)'));
+    li.append(el('span', 'badge', a.name.slice(0, 1).toUpperCase()), el('span', 'name', a.name), el('span', 'meta', t('apps.at', { size: a.sectors * SECTOR, address: hex(a.address) })));
+    if (a.address + a.size > i.appsEnd) li.append(el('span', 'warn', t('apps.pastArea')));
     ul.append(li);
   }
-  $('#files').textContent = st.files ? `Files: ${st.files.files.map((f) => f.name).join(', ') || 'none'}. Installing doesn't write them, but the restart may lose files that aren't Python scripts: back them up first if they matter.` : '';
+  const fileNames = st.files ? st.files.files.map((f) => f.name) : [];
+  $('#files').textContent = st.files ? t('apps.files', { names: fileNames.length ? fileNames : t('apps.files.none') }) : '';
 
   const nw = $('#nwagra');
   nw.disabled = st.busy || !i.nwagraOk;
   if (!i.nwagraOk) nw.checked = false;
   $('#nwagra-opt').classList.toggle('disabled', !i.nwagraOk);
-  $('#nwagra-note').textContent = !i.nwagraOk ? 'Not on this calculator: it runs from its second slot, which the extra space would overwrite.'
-    : `Apps may run on past the app area, to the end of the flash: ${mb(i.nwagraEnd - i.appsStart)} in all. That space is the calculator's spare copy of its software (slot B${i.slotB ? ', Epsilon ' + i.slotB + ' now' : ''}), which gets overwritten; the calculator keeps running from slot A. Only the last app may go past the app area.`;
+  $('#nwagra-note').textContent = !i.nwagraOk ? t('opt.nwagra.no')
+    : t(i.slotB ? 'opt.nwagra.yesB' : 'opt.nwagra.yes', { size: i.nwagraEnd - i.appsStart, version: i.slotB });
   $('#keep').disabled = st.busy || !st.scan.apps.length;
   $('#keep').closest('.opt').classList.toggle('disabled', !st.scan.apps.length);
 
   const q = $('#queue');
   q.textContent = '';
-  if (!st.queue.length) q.append(el('li', 'empty', 'Nothing added yet.'));
+  if (!st.queue.length) q.append(el('li', 'empty', t('queue.empty')));
   st.queue.forEach((item, n) => {
     const li = el('li');
     li.append(el('span', 'badge new', (item.name || '?').slice(0, 1).toUpperCase()), el('span', 'name', item.name));
-    if (item.error) li.append(el('span', 'warn', item.error));
+    if (item.error) li.append(el('span', 'warn', errText(item.error).split('\n')[0]));
     else if (item.needsData) {
-      const lab = el('label', 'link', 'add its data file…');
+      const lab = el('label', 'link', t('queue.addData'));
       const inp = el('input'); inp.type = 'file'; inp.hidden = true;
       inp.addEventListener('change', async () => { item.data = new Uint8Array(await inp.files[0].arrayBuffer()); item.dataName = inp.files[0].name; inspect(item); });
       lab.append(inp);
-      li.append(el('span', 'warn', 'needs an external data file:'), lab);
-    } else li.append(el('span', 'meta', item.size ? kb(sectors(item.size)) + (item.dataName ? ' with ' + item.dataName : '') : 'reading…'));
-    const up = el('button', 'x', '↑'); up.title = 'Move up'; up.disabled = n === 0 || st.busy;
+      li.append(el('span', 'warn', t('queue.needsData')), lab);
+    } else li.append(el('span', 'meta', !item.size ? t('queue.reading')
+      : item.dataName ? t('queue.withData', { size: sectors(item.size), file: item.dataName }) : kb(sectors(item.size))));
+    const up = el('button', 'x', '↑'); up.title = t('queue.up'); up.disabled = n === 0 || st.busy;
     up.addEventListener('click', () => { st.queue.splice(n - 1, 0, st.queue.splice(n, 1)[0]); render(); });
-    const x = el('button', 'x', '✕'); x.title = 'Remove'; x.disabled = st.busy;
+    const x = el('button', 'x', '✕'); x.title = t('queue.remove'); x.disabled = st.busy;
     x.addEventListener('click', () => { st.queue.splice(n, 1); render(); });
     li.append(up, x);
     q.append(li);
@@ -261,29 +284,32 @@ function render() {
   const over = Math.max(0, L.kept + L.adding - L.total);
   const nw2 = el('div', over ? 'over' : 'new'); nw2.style.width = pct(Math.min(L.adding, L.total - L.kept));
   bar.append(k, nw2);
-  if (L.nwagra) { const m = el('div', 'mark'); m.style.left = pct(L.std); m.title = 'End of the standard app area'; bar.append(m); }
+  if (L.nwagra) { const m = el('div', 'mark'); m.style.left = pct(L.std); m.title = t('space.stdEnd'); bar.append(m); }
   const lg = $('#legend');
-  lg.innerHTML = '';
+  lg.textContent = '';
   const leg = (cls, txt) => { const s = el('span'); const ic = el('i'); ic.style.background = `var(--${cls})`; s.append(ic, txt); lg.append(s); };
-  if (L.kept) leg('kept', 'kept ' + kb(L.kept));
-  leg(over ? 'bad' : 'new', 'new ' + kb(L.adding));
-  leg('free', over ? mb(over) + ' too much' : 'free ' + kb(L.total - L.kept - L.adding));
+  if (L.kept) leg('kept', t('space.kept', { size: L.kept }));
+  leg(over ? 'bad' : 'new', t('space.new', { size: L.adding }));
+  leg('free', over ? t('space.over', { size: over }) : t('space.free', { size: L.total - L.kept - L.adding }));
 
-  $('#plan').textContent = !st.queue.length ? '' : !L.ready ? 'Waiting on the apps above.'
-    : !L.fits ? 'That\'s more than the space. ' + (L.kept ? 'Try without keeping the installed apps' : 'Take an app out') + (i.nwagraOk && !L.nwagra ? ', or turn on Nwagra.' : '.')
-    : !L.startsOk ? 'The last app would start past the app area, where the calculator does not look. Move the biggest app last.'
-    : `Writes ${kb(L.adding + SECTOR)} from ${hex(i.appsStart + L.kept)}.`;
+  const orNwagra = i.nwagraOk && !L.nwagra ? 'Nwagra' : '';
+  $('#plan').textContent = !st.queue.length ? '' : !L.ready ? t('plan.waiting')
+    : !L.fits ? t((L.kept ? 'plan.over.keep' : 'plan.over.remove') + orNwagra)
+    : !L.startsOk ? t('plan.lastPast')
+    : t('plan.writes', { size: L.adding + SECTOR, from: hex(i.appsStart + L.kept) });
   $('#install').disabled = st.busy || !L.ready || !L.fits || !L.startsOk;
   numplay.render();
 }
 
 // ------------------------------------------------------------------ installing
+// text: T(...), so an open dialog follows a language change
 function confirmDialog(text) {
   return new Promise((ok) => {
     const d = $('#confirm');
-    $('#confirm-text').textContent = text;
+    d._text = text;
+    $('#confirm-text').textContent = text();
     d.returnValue = '';
-    d.addEventListener('close', () => ok(d.returnValue === 'ok'), { once: true });
+    d.addEventListener('close', () => { d._text = null; ok(d.returnValue === 'ok'); }, { once: true });
     d.showModal();
   });
 }
@@ -295,27 +321,28 @@ $('#install').addEventListener('click', async () => {
   try {
     await loadTools();
     plan = await planInstall(i, st.scan, st.queue.map((q) => ({ name: q.name, nwa: q.nwa, data: q.data })), { keep, nwagra: L.nwagra });
-  } catch (e) { log('Plan failed: ' + e.message); alert(e.message); return; }
-  const names = plan.placed.map((p) => p.name).join(', ');
-  const text = (keep ? `Add ${names} after the ${st.scan.apps.length} installed app(s).` : `Replace ${st.scan.apps.length ? 'the installed apps' : 'the (empty) app area'} with ${names}.`)
-    + ` This writes ${kb(plan.image.length)} to the calculator's flash from ${hex(plan.start)}`
-    + (plan.start + plan.image.length > i.appsEnd ? ', past the standard app area (Nwagra)' : '') + '.';
+  } catch (e) { log('Plan failed: ' + e.message); alert(errText(e)); return; }
+  const names = plan.placed.map((p) => p.name);
+  const count = st.scan.apps.length;
+  const past = plan.start + plan.image.length > i.appsEnd;
+  const text = () => (keep ? t('confirm.add', { names, count }) : t(count ? 'confirm.replace' : 'confirm.replaceEmpty', { names }))
+    + ' ' + t(past ? 'confirm.writesNwagra' : 'confirm.writes', { size: plan.image.length, from: hex(plan.start) });
   if (!await confirmDialog(text)) return;
-  await job('Install', async () => {
-    log(`Writing ${kb(plan.image.length)} at ${hex(plan.start)}…`);
-    await writeInstall(st.dfu, i, plan, (p) => progress(p, (p < 0.3 ? 'Erasing ' : 'Writing ') + (p * 100).toFixed(0) + '%'));
-    for (const p of plan.placed) log(`Installed ${p.name} at ${hex(p.address)} (${kb(p.size)})`);
+  await job('install', async () => {
+    log(`Writing ${plan.image.length} bytes at ${hex(plan.start)}…`);
+    await writeInstall(st.dfu, i, plan, (p) => progress(p, p < 0.3 ? 'progress.erasing' : 'progress.writing'));
+    for (const p of plan.placed) log(`Installed ${p.name} at ${hex(p.address)} (${p.size} bytes)`);
     st.queue = [];
     await finish();
   });
 });
 
 async function finish() {
-  progress(1, 'Done');
+  progress(1, 'progress.done');
   if ($('#restart').checked) {
     await st.dfu.leave(st.info.appsStart).catch(() => {});
     log('Done. The calculator is restarting.');
-    status('Done. The calculator is restarting; connect again to see its apps.', 'ok');
+    status(T('done.restarting'), 'ok');
     st.dev = st.dfu = st.info = st.scan = null;
   } else {
     await rescan();
@@ -330,20 +357,28 @@ async function finish() {
 // written (the part inside the memory its DFU interface shows), and it restarts on it.
 const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
-$('#fw-check').addEventListener('click', () => job('Checking for updates', async () => {
+$('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
   const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
-  if (!s) { fwSetup('Updates need this page served by server.js (npm start), not another web server.'); return; }
-  if (!s.account) { fwSetup(s.error || 'Updates need your NumWorks account: see "Epsilon updates" in the README to make numworks-account.json next to server.js, then check again.'); return; }
+  if (!s) { fwSetup(T('fw.needServer')); return; }
+  if (!s.account) { fwSetup(s.error ? () => errText(s.code ? s : { message: s.error }) : T('fw.needAccount')); return; }
   const r = await fetch(MOCK ? 'dev/mock/fw.json' : `api/firmware/${st.info.model}.json`);
   const j = await r.json();
-  if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+  if (!r.ok) throw serverError(j, r.status);
   st.fw = j;
+  st.fwSetup = null;
   $('#fw-setup').hidden = true;
   log(`NumWorks offers Epsilon ${j.version} (${j.patch_level}) for the ${st.info.model}`);
 }));
 
-function fwSetup(text) { const p = $('#fw-setup'); p.hidden = false; p.textContent = text; $('#fw-box').hidden = true; }
+function fwSetup(text) { st.fwSetup = text; drawFwSetup(); }
+function drawFwSetup() {
+  if (!st.fwSetup) return;
+  const p = $('#fw-setup');
+  p.hidden = false;
+  p.textContent = st.fwSetup();
+  $('#fw-box').hidden = true;
+}
 
 function renderFirmware() {
   const i = st.info, f = st.fw;
@@ -351,38 +386,37 @@ function renderFirmware() {
   if (!f) return;
   const target = i.slot === 'A' ? 'B' : 'A';
   const same = f.version === i.version && f.patch_level === i.patch;
-  $('#fw-now').textContent = `Epsilon ${i.version} (${i.patch}), slot ${i.slot}`;
-  $('#fw-new').textContent = `Epsilon ${f.version} (${f.patch_level})`;
+  $('#fw-now').textContent = t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot });
+  $('#fw-new').textContent = t('fw.offer', { version: f.version, patch: f.patch_level });
   const appsInB = st.scan.apps.some((a) => a.address + a.size > SLOT_B);
-  $('#fw-note').textContent = (same ? 'You have this version already. ' : '')
-    + `It goes in slot ${target}, the one the calculator is not running, and the calculator restarts on it.`
-    + (target === 'A' ? ' Slot A is the one Nwagra needs.' : ' To end up on slot A (for Nwagra), update a second time after this one.')
-    + (target === 'B' && appsInB ? ' Slot B holds the end of your Nwagra apps now: writing it breaks them, so install them again after.' : '');
-  $('#fw-install').textContent = same ? `Reinstall in slot ${target}` : `Update to ${f.version}`;
-  $('#fw-plan').textContent = `Writes about ${mb(f.size || 0)} to slot ${target}.`;
+  $('#fw-note').textContent = [same && t('fw.same'), t('fw.goesIn', { slot: target }),
+    t(target === 'A' ? 'fw.slotA' : 'fw.twice'), target === 'B' && appsInB && t('fw.breaksB')].filter(Boolean).join(' ');
+  $('#fw-install').textContent = same ? t('fw.reinstall', { slot: target }) : t('fw.updateTo', { version: f.version });
+  $('#fw-plan').textContent = t('fw.plan', { size: f.size || 0, slot: target });
   $('#fw-install').disabled = st.busy;
 }
 
 $('#fw-install').addEventListener('click', async () => {
   const i = st.info, f = st.fw;
   const target = i.slot === 'A' ? 'B' : 'A';
-  if (!await confirmDialog(`Write Epsilon ${f.version} (${f.patch_level}) into slot ${target} and restart the calculator on it? `
-    + 'Do not unplug the calculator until it is done.' + ($('#fw-keep').checked ? ' Your Python scripts are saved first and put back after.' : ' Files on the calculator may be lost.'))) return;
-  await job('Update', async () => {
-    const bar = (label) => (p) => progress(p, label + ' ' + (p * 100).toFixed(0) + '%', $('#fw-progress'));
+  const keep = $('#fw-keep').checked;
+  if (!await confirmDialog(() => t('fw.confirm', { version: f.version, patch: f.patch_level, slot: target }) + ' '
+    + t(keep ? 'fw.confirm.keep' : 'fw.confirm.lose'))) return;
+  await job('update', async () => {
+    const bar = (label, vars) => (p) => progress(p, label, vars, $('#fw-progress'));
     // 1. the firmware, from NumWorks through the local server
     log(`Downloading Epsilon ${f.version} for the ${i.model}…`);
-    bar('Downloading')(0);
+    bar('progress.downloading')(0);
     const r = await fetch(MOCK ? 'dev/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}`);
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
+    if (!r.ok) throw serverError(await r.json().catch(() => ({})), r.status);
     const elements = writableElements(parseDfuFile(new Uint8Array(await r.arrayBuffer())), st.dfu);
-    if (!elements.length) throw new Error('Nothing in that firmware is for the part of the calculator that can be written now');
+    if (!elements.length) throw uiError('fw.nothing', {}, 'Nothing in that firmware is for the part of the calculator that can be written now');
     const slots = [...new Set(elements.map((e) => slotOf(e.address)))];
-    if (slots.length !== 1 || slots[0] === i.slot) throw new Error(`The firmware's writable part is for slot ${slots.join('+')}, but the calculator runs from slot ${i.slot}: stopping`);
-    log(`Firmware: ${elements.map((e) => hex(e.address) + ' (' + kb(e.data.length) + ')').join(', ')} for slot ${slots[0]}`);
+    if (slots.length !== 1 || slots[0] === i.slot) throw uiError('fw.wrongSlot', { slots: slots.join('+'), slot: i.slot }, `The firmware's writable part is for slot ${slots.join('+')}, but the calculator runs from slot ${i.slot}: stopping`);
+    log(`Firmware: ${elements.map((e) => hex(e.address) + ' (' + e.data.length + ' bytes)').join(', ')} for slot ${slots[0]}`);
     // 2. the files, so the scripts can come back
     let scripts = [];
-    if ($('#fw-keep').checked) {
+    if (keep) {
       const raw = await st.dfu.read(i.storageAddress, i.storageSize);
       download(raw, `numworks-files-${stamp()}.bin`);
       scripts = (parseStorage(raw)?.files || []).filter((x) => /\.py$/.test(x.name));
@@ -395,25 +429,25 @@ $('#fw-install').addEventListener('click', async () => {
       const data = new Uint8Array(e.data.length + pad).fill(0xff);
       data.set(e.data);
       n++;
-      await st.dfu.write(e.address, data, bar(`Writing ${n}/${elements.length}`));
-      const back = await st.dfu.read(e.address, data.length, bar(`Checking ${n}/${elements.length}`));
-      for (let k = 0; k < data.length; k++) if (back[k] !== data[k]) throw new Error('Check failed at ' + hex(e.address + k) + '. The calculator still runs its current software: try again.');
+      await st.dfu.write(e.address, data, bar('progress.writingN', { n, total: elements.length }));
+      const back = await st.dfu.read(e.address, data.length, bar('progress.checkingN', { n, total: elements.length }));
+      for (let k = 0; k < data.length; k++) if (back[k] !== data[k]) throw uiError('fw.check', { address: hex(e.address + k) }, 'Check failed at ' + hex(e.address + k) + '. The calculator still runs its current software: try again.');
     }
     log(`Wrote and checked slot ${slots[0]}. Restarting the calculator…`);
     // 4. restart on it, and wait for it to come back
     const serial = st.dev?.serialNumber;
     await st.dfu.leave(elements[0].address).catch(() => {});
-    if (MOCK) { progress(1, 'Done (pretend calculator: no restart)', $('#fw-progress')); return; }
+    if (MOCK) { progress(1, 'progress.doneMock', {}, $('#fw-progress')); return; }
     st.dev = st.dfu = st.info = st.scan = null;
     st.fw = null;
     render();
-    status('Restarting… keep the calculator plugged in and unlocked.');
+    status(T('fw.restarting'));
     let dev = null;
-    for (let t = 0; t < 90 && !dev; t++) {
+    for (let s = 0; s < 90 && !dev; s++) {
       await new Promise((ok) => setTimeout(ok, 1000));
       dev = (await navigator.usb.getDevices()).find((d) => d.vendorId === 0x0483 && (!serial || d.serialNumber === serial));
     }
-    if (!dev) { status('Updated. Connect again when the calculator is back.', 'ok'); log('The calculator did not come back by itself: connect again'); return; }
+    if (!dev) { status(T('fw.updatedReconnect'), 'ok'); log('The calculator did not come back by itself: connect again'); return; }
     await new Promise((ok) => setTimeout(ok, 1500));
     await connect(dev);
     log(`Now on Epsilon ${st.info.version} (${st.info.patch}), slot ${st.info.slot}`);
@@ -428,7 +462,7 @@ $('#fw-install').addEventListener('click', async () => {
       }
       log(`Put back ${missing.length} Python script(s)`);
     }
-    status(`Updated: Epsilon ${st.info.version}, slot ${st.info.slot}`, 'ok');
+    status(T('fw.updated', { version: st.info.version, slot: st.info.slot }), 'ok');
   });
 });
 
@@ -448,10 +482,21 @@ const numplay = initNumPlay({
   },
 });
 
+// ------------------------------------------------------------------ switching language: redraw in place, state kept
+// (applyDom has redone index.html's text by now; numplay-ui.js listens on its own)
+window.addEventListener('langchange', () => {
+  drawStatus();
+  drawFwSetup();
+  for (const box of [$('#progress'), $('#fw-progress')]) drawProgress(box);
+  const d = $('#confirm');
+  if (d.open && d._text) $('#confirm-text').textContent = d._text();
+  render();
+});
+
 // a calculator this page was allowed to use before: connect straight away
 if (!MOCK) navigator.usb?.getDevices().then((ds) => {
   const d = ds.find((x) => x.vendorId === 0x0483);
-  if (d) job('Connecting', () => connect(d));
+  if (d) job('connect', () => connect(d));
 });
 render();
 
