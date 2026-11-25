@@ -67,6 +67,18 @@ each update moves the calculator between slot A and slot B. Nwagra needs slot A:
 the same version) puts you on A. Your Python scripts are saved before and put back after, and a backup of all
 files is downloaded first.
 
+## Languages
+
+The page is in English and French: pick one in the header (it is remembered; the first visit follows the browser's language). Switching redraws the page in place, nothing is lost.
+
+### Adding a language
+
+1. Copy `public/i18n/en.js` to `public/i18n/<code>.js` (e.g. `zh.js`) and translate the texts. Keep every key and every `{placeholder}` (with its `:size` or `:mb` format) and `[b]`/`[code]`/`[aN]` mark as they are. A plural is `{ one: ..., other: ... }`: give the forms your language has (`Intl.PluralRules` picks one, `other` is the fallback).
+2. Add it to `DICTS` in `public/i18n/index.js` and as an `<option>` of `#lang` in `public/index.html`.
+3. Run `npm run check-i18n` (also part of `npm test`): it lists missing or extra keys and mismatched placeholders.
+
+Errors from `public/lib/` and the server carry a code (`InstallerError` in `public/lib/errors.js`, `{ error, code, params }` from the server) whose text is `err.<code>` in the dictionaries; their English message stays for the log and the Node tools. The log itself stays in English.
+
 ## How it works
 ```
 server.js            the local server: the page, firmware downloads, NumPlay's files
