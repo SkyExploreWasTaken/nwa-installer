@@ -30,8 +30,8 @@ export const has = (key) => key in DICTS[lang] || key in en;
 
 const nf = (opts) => new Intl.NumberFormat(lang, opts);
 export const mb = (n) => nf({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 1048576) + ' ' + t('unit.mb');
-// KB under 1 MB (at least 1 KB), else MB
-export const size = (n) => (n < 1048576 ? nf().format(Math.max(1, Math.round(n / 1024))) + ' ' + t('unit.kb') : mb(n));
+// KB under 1 MB (at least 1 KB unless it's nothing), else MB
+export const size = (n) => (n < 1048576 ? nf().format(Math.max(n > 0 ? 1 : 0, Math.round(n / 1024))) + ' ' + t('unit.kb') : mb(n));
 
 function format(v, how) {
   if (how === 'size') return size(v);

@@ -4,7 +4,7 @@
 // looks, and its NumPlay.nwa goes straight into the apps to install.
 import { NumPlayKit, VARIANTS, SECRETS, MAX_GAMES, MAX_CARTS } from './lib/numplay.js';
 import { SYSTEMS, MEGA_DRIVE, extensions } from './lib/roms.js';
-import { t, errText, size } from './i18n/index.js';
+import { t, errText, size, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -40,7 +40,7 @@ export function initNumPlay({ log, free, add }) {
         b.addEventListener('click', () => pickVariant(v));
         $('#np-variants').append(b);
       }
-      SECRETS.forEach((s, i) => $('#np-secret').append(new Option(s, String(i))));
+      SECRETS.forEach((s, i) => $('#np-secret').append(new Option(t('np.secret.' + i), String(i))));  // (SECRETS' order, in the page's language)
       for (const g of st.kit.games()) tiles.set(g.id, tile(g.id, g.title, st.kit.iconUrl(g.id), g.flash, g.xl ? 'big' : '', g.top, g.credit));
       ownGames();
       log(`NumPlay ${st.kit.version}: ${st.kit.games().length} games`);
@@ -88,7 +88,8 @@ export function initNumPlay({ log, free, add }) {
     const rg = st.kit.retroGo;
     if (!rg) return;
     const systems = st.kit.romSystems.map((s) => SYSTEMS[s].name);
-    $('#np-roms-what').textContent = rg.tagline ? t('np.roms.tagline', { tagline: rg.tagline }) : t('np.roms.systems', { systems });
+    // (the kit's tagline is English: other languages list the systems)
+    $('#np-roms-what').textContent = rg.tagline && getLang() === 'en' ? t('np.roms.tagline', { tagline: rg.tagline }) : t('np.roms.systems', { systems });
     $('#np-roms').title = [t('np.roms.tip', { title: rg.title, systems }), rg.credit].filter(Boolean).join('\n');
   }
   function dropOn(box, add) {
@@ -198,6 +199,7 @@ export function initNumPlay({ log, free, add }) {
     grid.replaceChildren(...visibleOrder().map((id) => tiles.get(id)));
     for (const [id, b] of tiles) { b.setAttribute('aria-pressed', String(st.picked.includes(id))); b.title = tileTip(b._tip); }
     ownGamesText();
+    for (const o of $('#np-secret').options) o.textContent = t('np.secret.' + o.value);
     for (const b of $('#np-variants').children) b.setAttribute('aria-checked', String(b.title === st.variant.replace('NumPlay-', '')));
     $('#np-secret-row').hidden = $('#np-opens').value !== 'matrices';
 
