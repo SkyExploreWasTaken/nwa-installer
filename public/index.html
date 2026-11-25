@@ -18,13 +18,19 @@
         <circle cx="12" cy="24.5" r="1.6" class="logo-key"/><circle cx="16" cy="24.5" r="1.6" class="logo-key"/><circle cx="20" cy="24.5" r="1.6" class="logo-key"/>
       </svg>
       <div>
-        <h1>NWA Installer</h1>
-        <p class="sub">Put <code>.nwa</code> apps on a NumWorks calculator, straight from this computer.</p>
+        <h1 data-i18n="app.title">NWA Installer</h1>
+        <p class="sub" data-i18n-rich="header.sub">Put <code>.nwa</code> apps on a NumWorks calculator, straight from this computer.</p>
       </div>
     </div>
-    <ul class="pills" aria-label="About">
-      <li>No account</li><li>Runs locally</li><li>Chrome &amp; Edge</li>
-    </ul>
+    <div class="top-side">
+      <ul class="pills" aria-label="About" data-i18n-aria-label="header.about">
+        <li data-i18n="pill.noAccount">No account</li><li data-i18n="pill.local">Runs locally</li><li data-i18n="pill.browsers">Chrome &amp; Edge</li>
+      </ul>
+      <select id="lang" class="lang" aria-label="Language" data-i18n-aria-label="lang.label">
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+      </select>
+    </div>
   </header>
 
   <main>
@@ -32,10 +38,10 @@
       <div class="card-head">
         <span class="step">1</span>
         <div>
-          <h2>Calculator</h2>
-          <p id="status" class="muted">Plug the calculator in, unlock it, then connect.</p>
+          <h2 data-i18n="connect.title">Calculator</h2>
+          <p id="status" class="muted" data-i18n="connect.hint">Plug the calculator in, unlock it, then connect.</p>
         </div>
-        <button id="connect" class="primary">Connect calculator</button>
+        <button id="connect" class="primary" data-i18n="connect.button">Connect calculator</button>
       </div>
       <dl id="info" class="info" hidden></dl>
     </section>
@@ -43,102 +49,102 @@
     <section id="s-apps" class="card" hidden>
       <div class="card-head">
         <span class="step">2</span>
-        <div><h2>On the calculator</h2><p class="muted">Apps installed now, in the order the calculator lists them.</p></div>
+        <div><h2 data-i18n="apps.title">On the calculator</h2><p class="muted" data-i18n="apps.sub">Apps installed now, in the order the calculator lists them.</p></div>
       </div>
       <ul id="installed" class="apps"></ul>
       <p id="files" class="note"></p>
       <div class="toolbar">
-        <button id="backup-apps" class="ghost" title="Save the whole app area as a .bin you can restore later">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 14v2h12v-2"/></svg>Back up apps</button>
-        <button id="backup-files" class="ghost" title="Save the calculator's files (Python scripts, saves) as a .bin">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 14v2h12v-2"/></svg>Back up files</button>
-        <label class="button ghost" title="Write an app-area backup back to the calculator">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5M4 14v2h12v-2"/></svg>Restore apps…<input id="restore" type="file" accept=".bin" hidden></label>
+        <button id="backup-apps" class="ghost" data-i18n-title="apps.backupApps.tip" title="Save the whole app area as a .bin you can restore later">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 14v2h12v-2"/></svg><span data-i18n="apps.backupApps">Back up apps</span></button>
+        <button id="backup-files" class="ghost" data-i18n-title="apps.backupFiles.tip" title="Save the calculator's files (Python scripts, saves) as a .bin">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 14v2h12v-2"/></svg><span data-i18n="apps.backupFiles">Back up files</span></button>
+        <label class="button ghost" data-i18n-title="apps.restore.tip" title="Write an app-area backup back to the calculator">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5M4 14v2h12v-2"/></svg><span data-i18n="apps.restore">Restore apps…</span><input id="restore" type="file" accept=".bin" hidden></label>
       </div>
     </section>
 
     <section id="s-new" class="card" hidden>
       <div class="card-head">
         <span class="step">3</span>
-        <div><h2>Install apps</h2><p class="muted">Add .nwa files. They go on the calculator in this order.</p></div>
+        <div><h2 data-i18n="new.title">Install apps</h2><p class="muted" data-i18n="new.sub">Add .nwa files. They go on the calculator in this order.</p></div>
       </div>
 
       <div id="drop" class="drop">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0l-4 4m4-4l4 4M5 15v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg>
-        <span>Drop .nwa files here or <label class="link">browse<input id="pick" type="file" accept=".nwa" multiple hidden></label></span>
+        <span><span data-i18n="new.drop">Drop .nwa files here or</span> <label class="link"><span data-i18n="new.browse">browse</span><input id="pick" type="file" accept=".nwa" multiple hidden></label></span>
       </div>
       <button id="np-open" class="numplay-link" type="button" aria-expanded="false" aria-controls="np">
         <span class="np-icon" aria-hidden="true">&#9654;</span>
-        <span><b>Build a NumPlay</b><span class="muted">One app with the games you pick, from NumPlay's launcher and games.</span></span>
+        <span><b data-i18n="np.open">Build a NumPlay</b><span class="muted" data-i18n="np.open.sub">One app with the games you pick, from NumPlay's launcher and games.</span></span>
         <span class="np-go" aria-hidden="true">&#8250;</span>
       </button>
       <div id="np" class="np" hidden>
         <div class="np-tools">
-          <input id="np-search" type="search" placeholder="Search games" aria-label="Search games">
-          <select id="np-sort" aria-label="Order">
-            <option value="rank">Most popular</option>
-            <option value="name">Name</option>
-            <option value="small">Smallest first</option>
-            <option value="big">Biggest first</option>
+          <input id="np-search" type="search" placeholder="Search games" aria-label="Search games" data-i18n-placeholder="np.search" data-i18n-aria-label="np.search">
+          <select id="np-sort" aria-label="Order" data-i18n-aria-label="np.sort">
+            <option value="rank" data-i18n="np.sort.rank">Most popular</option>
+            <option value="name" data-i18n="np.sort.name">Name</option>
+            <option value="small" data-i18n="np.sort.small">Smallest first</option>
+            <option value="big" data-i18n="np.sort.big">Biggest first</option>
           </select>
-          <select id="np-lang" aria-label="Language"></select>
+          <select id="np-lang" aria-label="Games' language" data-i18n-aria-label="np.lang"></select>
         </div>
         <p id="np-status" class="note"></p>
-        <div id="np-grid" class="np-grid" role="group" aria-label="Games"></div>
+        <div id="np-grid" class="np-grid" role="group" aria-label="Games" data-i18n-aria-label="np.games"></div>
 
         <div id="np-roms" class="np-own" hidden>
           <div class="np-own-head">
             <span><b>Retro-Go</b> <span id="np-roms-what" class="muted"></span></span>
-            <label class="link">Add games…<input id="np-rom-file" type="file" multiple hidden></label>
+            <label class="link"><span data-i18n="np.roms.add">Add games…</span><input id="np-rom-file" type="file" multiple hidden></label>
           </div>
           <ul id="np-rom-list" class="chips"></ul>
         </div>
         <div id="np-carts" class="np-own" hidden>
           <div class="np-own-head">
-            <span><b>NumPico</b> <span class="muted">Your PICO-8 carts (.p8 or .p8.png)</span></span>
-            <label class="link">Add carts…<input id="np-cart-file" type="file" accept=".p8,.png" multiple hidden></label>
+            <span><b>NumPico</b> <span class="muted" data-i18n="np.carts.what">Your PICO-8 carts (.p8 or .p8.png)</span></span>
+            <label class="link"><span data-i18n="np.carts.add">Add carts…</span><input id="np-cart-file" type="file" accept=".p8,.png" multiple hidden></label>
           </div>
           <ul id="np-cart-list" class="chips"></ul>
         </div>
 
         <div class="np-look">
           <div>
-            <span class="k">Looks like</span>
-            <div id="np-variants" class="np-variants" role="radiogroup" aria-label="Icon"></div>
+            <span class="k" data-i18n="np.looks">Looks like</span>
+            <div id="np-variants" class="np-variants" role="radiogroup" aria-label="Icon" data-i18n-aria-label="np.icon"></div>
           </div>
-          <label><span class="k">Name</span><input id="np-name" maxlength="20" value="NumPlay"></label>
-          <label><span class="k">Opens</span>
-            <select id="np-opens"><option value="numplay">Straight away</option><option value="matrices">As the Matrices app, with a secret</option></select></label>
-          <label id="np-secret-row" hidden><span class="k">Secret</span><select id="np-secret"></select></label>
-          <label class="np-check"><input type="checkbox" id="np-hint" checked> Show how to open the games</label>
+          <label><span class="k" data-i18n="np.name">Name</span><input id="np-name" maxlength="20" value="NumPlay"></label>
+          <label><span class="k" data-i18n="np.opens">Opens</span>
+            <select id="np-opens"><option value="numplay" data-i18n="np.opens.now">Straight away</option><option value="matrices" data-i18n="np.opens.matrices">As the Matrices app, with a secret</option></select></label>
+          <label id="np-secret-row" hidden><span class="k" data-i18n="np.secret">Secret</span><select id="np-secret"></select></label>
+          <label class="np-check"><input type="checkbox" id="np-hint" checked> <span data-i18n="np.hint">Show how to open the games</span></label>
         </div>
 
         <div class="install-row">
           <span id="np-plan" class="muted"></span>
-          <button id="np-add" class="primary" disabled>Add to the list</button>
+          <button id="np-add" class="primary" disabled data-i18n="np.add">Add to the list</button>
         </div>
-        <p class="note credit">NumPlay's launcher and games are by Mason Chen: <a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a> (GPL-3.0). Retro-Go by ducalex, NumPico with femto8 by Ben Baker. They're fetched from NumPlay's site and linked here.
+        <p class="note credit" data-i18n-rich="np.credit">NumPlay's launcher and games are by Mason Chen: <a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a> (GPL-3.0). Retro-Go by ducalex, NumPico with femto8 by Ben Baker. They're fetched from NumPlay's site and linked here.
           Your own games and carts stay on this computer: bring only those you own.</p>
       </div>
       <ul id="queue" class="apps queue"></ul>
 
       <div class="options">
         <label class="opt"><input type="checkbox" id="keep" checked><span class="switch" aria-hidden="true"></span>
-          <span><b>Keep the apps already installed</b><span class="muted">New apps go after them. Off: the app area is rewritten with only the new apps.</span></span></label>
+          <span><b data-i18n="opt.keep">Keep the apps already installed</b><span class="muted" data-i18n="opt.keep.sub">New apps go after them. Off: the app area is rewritten with only the new apps.</span></span></label>
         <label class="opt" id="nwagra-opt"><input type="checkbox" id="nwagra"><span class="switch" aria-hidden="true"></span>
-          <span><b>Nwagra: enlarged app space</b><span class="muted" id="nwagra-note">Apps may run on past the app area, to the end of the flash.</span></span></label>
+          <span><b data-i18n="opt.nwagra">Nwagra: enlarged app space</b><span class="muted" id="nwagra-note" data-i18n="opt.nwagra.sub">Apps may run on past the app area, to the end of the flash.</span></span></label>
         <label class="opt"><input type="checkbox" id="restart" checked><span class="switch" aria-hidden="true"></span>
-          <span><b>Restart the calculator when done</b><span class="muted">So it lists the new apps right away.</span></span></label>
+          <span><b data-i18n="opt.restart">Restart the calculator when done</b><span class="muted" data-i18n="opt.restart.sub">So it lists the new apps right away.</span></span></label>
       </div>
 
       <div class="space">
-        <div class="space-head"><span>Space for apps</span><span id="legend" class="legend"></span></div>
+        <div class="space-head"><span data-i18n="space.title">Space for apps</span><span id="legend" class="legend"></span></div>
         <div id="bar" class="bar"></div>
       </div>
 
       <div class="install-row">
         <span id="plan" class="muted"></span>
-        <button id="install" class="primary big" disabled>Install</button>
+        <button id="install" class="primary big" disabled data-i18n="install.button">Install</button>
       </div>
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </section>
@@ -146,21 +152,21 @@
     <section id="s-fw" class="card" hidden>
       <div class="card-head">
         <span class="step">4</span>
-        <div><h2>Calculator software</h2><p class="muted">Official Epsilon from NumWorks, fetched by this computer's server with your NumWorks session.</p></div>
-        <button id="fw-check" class="ghost">Check for updates</button>
+        <div><h2 data-i18n="fw.title">Calculator software</h2><p class="muted" data-i18n="fw.sub">Official Epsilon from NumWorks, fetched by this computer's server with your NumWorks session.</p></div>
+        <button id="fw-check" class="ghost" data-i18n="fw.check">Check for updates</button>
       </div>
       <div id="fw-box" class="fw" hidden>
         <div class="fw-cards">
-          <div><span class="k">On the calculator</span><span id="fw-now" class="v"></span></div>
+          <div><span class="k" data-i18n="fw.now">On the calculator</span><span id="fw-now" class="v"></span></div>
           <div class="arrow" aria-hidden="true">&rarr;</div>
-          <div><span class="k">From NumWorks</span><span id="fw-new" class="v"></span></div>
+          <div><span class="k" data-i18n="fw.new">From NumWorks</span><span id="fw-new" class="v"></span></div>
         </div>
         <p id="fw-note" class="note"></p>
         <label class="opt"><input type="checkbox" id="fw-keep" checked><span class="switch" aria-hidden="true"></span>
-          <span><b>Keep my Python scripts</b><span class="muted">Saves them (and downloads a backup of all files) before, puts them back after.</span></span></label>
+          <span><b data-i18n="fw.keep">Keep my Python scripts</b><span class="muted" data-i18n="fw.keep.sub">Saves them (and downloads a backup of all files) before, puts them back after.</span></span></label>
         <div class="install-row">
           <span id="fw-plan" class="muted"></span>
-          <button id="fw-install" class="primary big" disabled>Update</button>
+          <button id="fw-install" class="primary big" disabled data-i18n="fw.install">Update</button>
         </div>
         <div id="fw-progress" class="progress" hidden><div></div><span></span></div>
       </div>
@@ -168,31 +174,31 @@
     </section>
 
     <details class="card log" open>
-      <summary><h2>Log</h2></summary>
+      <summary><h2 data-i18n="log.title">Log</h2></summary>
       <pre id="log"></pre>
     </details>
   </main>
 
   <footer class="foot">
-    <p>Everything happens between this page and the calculator over USB. Nothing is uploaded.</p>
-    <p>NumPlay's launcher and games by Mason Chen and NumPlay's contributors (<a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a>, GPL-3.0).
+    <p data-i18n="foot.local">Everything happens between this page and the calculator over USB. Nothing is uploaded.</p>
+    <p data-i18n-rich="foot.credits">NumPlay's launcher and games by Mason Chen and NumPlay's contributors (<a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a>, GPL-3.0).
       Linking by <a href="https://www.gnu.org/software/binutils/" target="_blank" rel="noopener">GNU binutils</a>.
       Nwagra was made by an anonymous author who can't be reached since their site went down: code from
       <a href="https://web.archive.org/web/20221008080116/https://www.nwagyu.com/nwagra.min.js" target="_blank" rel="noopener">nwagra.min.js</a>,
       extracted from <a href="https://www.nwagyu.com/" target="_blank" rel="noopener">nwagyu.com</a> (as the site is down).
       Not affiliated with NumWorks.</p>
-    <p><a href="https://github.com/SkyExploreWasTaken/nwa-installer" target="_blank" rel="noopener">Source code</a>, GPL-3.0-or-later.</p>
+    <p data-i18n-rich="foot.source"><a href="https://github.com/SkyExploreWasTaken/nwa-installer" target="_blank" rel="noopener">Source code</a>, GPL-3.0-or-later.</p>
   </footer>
 </div>
 
 <dialog id="confirm">
   <form method="dialog">
     <div class="dlg-icon" aria-hidden="true">!</div>
-    <h2>Write to the calculator?</h2>
+    <h2 data-i18n="dlg.title">Write to the calculator?</h2>
     <p id="confirm-text"></p>
     <div class="dlg-actions">
-      <button value="cancel" class="ghost">Cancel</button>
-      <button value="ok" class="primary danger">Write it</button>
+      <button value="cancel" class="ghost" data-i18n="dlg.cancel">Cancel</button>
+      <button value="ok" class="primary danger" data-i18n="dlg.ok">Write it</button>
     </div>
   </form>
 </dialog>

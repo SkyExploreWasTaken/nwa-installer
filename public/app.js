@@ -7,8 +7,11 @@ import { planInstall, writeInstall, mb } from './lib/install.js';
 import { parseStorage, buildStorage } from './lib/storage.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { initNumPlay } from './numplay-ui.js';
+import { applyDom, initLangSelect } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
+applyDom();
+initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const st = { dev: null, dfu: null, info: null, scan: null, queue: [], busy: false };
 
