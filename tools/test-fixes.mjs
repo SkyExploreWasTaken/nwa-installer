@@ -2,8 +2,9 @@
 // Tests for the review fixes and the firmware cache, with no network at all (pretend NumWorks and NumPlay):
 //  - storage: UTF-8 names survive a round trip (café.py stays café.py); records over 64 KB and overfull storage refused
 //  - the firmware version offered by default: the calculator's own when it's kept, else the latest
-//  - firmware-cache.js: checks once at start and then every hour; requests only read the cache; falls back to the kept
-//    copies when NumWorks can't be reached; caches a model from the first time it's recognized; never overwrites
+//  - firmware-cache.js: all known models seeded; stable and beta kept per model, channel and version; checks once at
+//    start and then every hour; requests only read the cache; a missing channel or model is skipped; falls back to the
+//    kept copies when NumWorks can't be reached; a model not on the list is added when first seen; never overwrites
 //  - numplay.js: only the manifest's paths, only bytes matching their pinned sha256
 //  - server.js: security headers on every response; /api/firmware answers from the cache without any network
 //   node tools/test-fixes.mjs
@@ -74,20 +75,25 @@ test('version: a latest offer that is not downloaded yet is listed but not avail
 });
 
 // ------------------------------------------------------------------ firmware-cache.js
-const { FirmwareCache, HOUR } = require(path.join(repo, 'firmware-cache.js'));
+const { FirmwareCache, HOUR, SEED_MODELS } = require(path.join(repo, 'firmware-cache.js'));
 
-// a pretend NumWorks: what it offers per model, whether it's reachable, and every call counted
+// a pretend NumWorks: what it offers per model and channel (a missing entry is HTTP 404), whether it's reachable, and
+// every call counted
 function fakeNumWorks() {
-  const nw = { up: true, offers: { N0120: '24.4.0', N0110: '23.2.6', N0115: '23.2.6' }, calls: [] };
-  nw.fetchInfo = async (model) => {
-    nw.calls.push(['info', model]);
+  const nw = { up: true, calls: [],
+    offers: { N0120: { stable: '24.4.0', beta: '25.0.0' }, N0110: { stable: '23.2.6' }, N0115: { stable: '23.2.6' }, N0100: { stable: '15.3.1' } } };
+  const notFound = () => Object.assign(new Error('my.numworks.com: HTTP 404'), { status: 404, i18n: { code: 'nw.firmwareHttp', params: { status: 404 } } });
+  nw.fetchInfo = async (model, channel) => {
+    nw.calls.push(['info', model, channel]);
     if (!nw.up) throw Object.assign(new Error('Could not reach my.numworks.com: ENOTFOUND'), { status: 502, i18n: { code: 'nw.unreachable', params: { msg: 'ENOTFOUND' } } });
-    return { name: 'stable', info: { version: nw.offers[model], patch_level: 'p' + nw.offers[model] } };
+    const v = nw.offers[model]?.[channel];
+    if (!v) throw notFound();
+    return { name: channel, info: { version: v, patch_level: 'p' + v } };
   };
   nw.fetchFirmware = async (model, name) => {
     nw.calls.push(['dfu', model, name]);
     if (!nw.up) throw new Error('offline');
-    return Buffer.from(`firmware ${model} ${nw.offers[model]}`);
+    return Buffer.from(`firmware ${model} ${name} ${nw.offers[model][name]}`);
   };
   return nw;
 }
@@ -100,12 +106,19 @@ function fakeTimers() {
   return t;
 }
 const settle = () => new Promise((ok) => setTimeout(ok, 20));
+const infoCalls = (nw) => nw.calls.filter((c) => c[0] === 'info');
 let cacheN = 0;
 function newCache(nw, timers = fakeTimers(), dir = path.join(tmp, 'fw' + cacheN++)) {
   return { cache: new FirmwareCache({ dir, fetchInfo: nw.fetchInfo, fetchFirmware: nw.fetchFirmware, timers }), timers, dir };
 }
 
-test('cache: checks once at start, then on an hourly timer', async () => {
+test('cache: every known model is seeded from the start', () => {
+  const { cache } = newCache(fakeNumWorks());
+  assert.deepEqual(cache.index.knownModels, ['N0100', 'N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930']);
+  assert.deepEqual(SEED_MODELS, cache.index.knownModels);
+});
+
+test('cache: checks every seeded model and both channels at start, then on an hourly timer', async () => {
   const nw = fakeNumWorks();
   const { cache, timers } = newCache(nw);
   cache.start();
@@ -113,13 +126,45 @@ test('cache: checks once at start, then on an hourly timer', async () => {
   assert.equal(timers.intervals.length, 1);
   assert.equal(timers.intervals[0].ms, HOUR);
   assert.equal(HOUR, 3600000);
-  assert.deepEqual(nw.calls.filter((c) => c[0] === 'info'), [['info', 'N0120']], 'the startup check, for the one known model');
-  nw.offers.N0120 = '24.5.0';
+  assert.deepEqual(infoCalls(nw).map((c) => c[1] + ' ' + c[2]), SEED_MODELS.flatMap((m) => [m + ' stable', m + ' beta']));
+  nw.offers.N0120.stable = '24.5.0';
   await timers.tick();  // an hour later
-  assert.equal(nw.calls.filter((c) => c[0] === 'info').length, 2);
-  assert.deepEqual(cache.info('N0120').versions.map((v) => v.version), ['24.5.0', '24.4.0'], 'the old version is kept');
+  assert.equal(infoCalls(nw).length, 2 * 2 * SEED_MODELS.length);
+  assert.deepEqual(cache.info('N0120').versions.map((v) => v.version + ' ' + v.channel), ['25.0.0 beta', '24.5.0 stable', '24.4.0 stable'], 'old versions kept');
   cache.stop();
   assert.equal(timers.intervals.length, 0);
+});
+
+test('cache: stable and beta are both kept, per model, channel and version', async () => {
+  const nw = fakeNumWorks();
+  const { cache, dir } = newCache(nw);
+  await cache.refreshAll();
+  for (const [ch, v] of [['stable', '24.4.0'], ['beta', '25.0.0']]) {
+    const file = path.join(dir, 'N0120', ch, v, 'firmware.dfu');
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'N0120', ch, v, 'metadata.json'), 'utf8'));
+    assert.equal(meta.sha256, sha256(fs.readFileSync(file)), ch);
+    assert.equal(meta.channel, ch);
+  }
+  const info = cache.info('N0120');
+  assert.equal(info.version, '24.4.0', 'the stable offer is the main one');
+  assert.deepEqual(info.channels, { stable: { version: '24.4.0', patch_level: 'p24.4.0', cached: true }, beta: { version: '25.0.0', patch_level: 'p25.0.0', cached: true } });
+  assert.equal(cache.firmware('N0120', '25.0.0', 'beta').body.toString(), 'firmware N0120 beta 25.0.0');
+  assert.equal(cache.firmware('N0120', '25.0.0').channel, 'beta', 'found in beta without naming it');
+});
+
+test('cache: a missing channel or model is skipped, not an error', async () => {
+  const nw = fakeNumWorks();
+  const logs = [];
+  const { cache } = newCache(nw);
+  cache.log = (m) => logs.push(m);
+  await cache.refreshAll();
+  const n110 = cache.info('N0110');
+  assert.equal(n110.version, '23.2.6');
+  assert.equal(n110.cache.offline, false, 'no beta for the N0110: no error');
+  assert.equal(cache.index.models.N0110.channels.beta.missing, true);
+  assert.throws(() => cache.info('N0120_PORTUGAL_PROTOTYPE_20210930'), (e) => e.status === 404 && e.i18n.code === 'fw.noneForModel');
+  assert.equal(cache.index.models.N0120_PORTUGAL_PROTOTYPE_20210930.channels.stable.lastError, null);
+  assert.ok(logs.some((l) => /no beta firmware for the N0110, skipped/.test(l)));
 });
 
 test('cache: page requests never reach NumWorks for a known model', async () => {
@@ -127,7 +172,7 @@ test('cache: page requests never reach NumWorks for a known model', async () => 
   const { cache } = newCache(nw);
   await cache.refreshAll();
   const before = nw.calls.length;
-  for (let n = 0; n < 5; n++) { cache.info('N0120'); cache.firmware('N0120', '24.4.0'); cache.firmware('N0120'); }
+  for (let n = 0; n < 5; n++) { cache.info('N0120'); cache.info('n0110'); cache.firmware('N0120', '24.4.0'); cache.firmware('N0120'); }
   await settle();
   assert.equal(nw.calls.length, before);
 });
@@ -142,7 +187,7 @@ test('cache: NumWorks unreachable falls back on the kept copies, with a notice',
   assert.equal(info.version, '24.4.0');
   assert.equal(info.cache.offline, true);
   assert.equal(info.cache.error.code, 'nw.unreachable');
-  assert.deepEqual(cache.firmware('N0120', '24.4.0').body, Buffer.from('firmware N0120 24.4.0'));
+  assert.equal(cache.firmware('N0120', '24.4.0').body.toString(), 'firmware N0120 stable 24.4.0');
 });
 
 test('cache: never reached NumWorks and nothing kept: a clear error, not a crash', async () => {
@@ -153,54 +198,61 @@ test('cache: never reached NumWorks and nothing kept: a clear error, not a crash
   assert.throws(() => cache.info('N0120'), (e) => e.status === 502 && e.i18n.code === 'nw.unreachable');
 });
 
-test('cache: a model is cached from the first time it is recognized', async () => {
+test('cache: a model not on the list is added and cached when first detected', async () => {
   const nw = fakeNumWorks();
+  nw.offers.N0130 = { stable: '30.0.0' };
   const { cache, timers, dir } = newCache(nw);
-  assert.deepEqual(cache.index.knownModels, ['N0120'], 'only the N0120 has been seen');
   await cache.refreshAll();
-  assert.ok(!nw.calls.some((c) => c[1] === 'N0110' || c[1] === 'N0115'), 'unseen models are not fetched');
-  assert.throws(() => cache.info('N0110'), (e) => e.status === 503 && e.i18n.code === 'fw.cachePending', 'first sight: not kept yet');
+  assert.ok(!nw.calls.some((c) => c[1] === 'N0130'), 'not fetched before it is seen');
+  assert.throws(() => cache.info('n0130'), (e) => e.status === 503 && e.i18n.code === 'fw.cachePending', 'first sight: not kept yet');
   await settle();
-  assert.deepEqual(cache.index.knownModels, ['N0120', 'N0110']);
-  assert.equal(cache.info('N0110').version, '23.2.6', 'its first check ran');
-  assert.ok(fs.existsSync(path.join(dir, 'N0110', '23.2.6', 'firmware.dfu')));
-  const idx = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
-  assert.deepEqual(idx.knownModels, ['N0120', 'N0110'], 'kept in index.json');
-  // from then on the hourly timer covers it, and the N0115 still isn't
+  assert.ok(cache.index.knownModels.includes('N0130'), 'added, with its name normalized');
+  assert.equal(cache.info('N0130').version, '30.0.0', 'its first check ran');
+  assert.ok(fs.existsSync(path.join(dir, 'N0130', 'stable', '30.0.0', 'firmware.dfu')));
+  assert.ok(JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')).knownModels.includes('N0130'), 'kept in index.json');
   cache.start();
   await settle();
   nw.calls.length = 0;
   await timers.tick();
-  assert.deepEqual(nw.calls.filter((c) => c[0] === 'info').map((c) => c[1]), ['N0120', 'N0110']);
+  assert.ok(infoCalls(nw).some((c) => c[1] === 'N0130'), 'then on the hourly timer');
   cache.stop();
+  assert.throws(() => cache.info('../etc'), (e) => e.status === 400, 'not a model name');
 });
 
-test('cache: files are kept per model and version with their sha256, and never overwritten', async () => {
+test('cache: files are never overwritten, and a changed one is not served', async () => {
   const nw = fakeNumWorks();
   const { cache, dir } = newCache(nw);
   await cache.refreshAll();
-  const file = path.join(dir, 'N0120', '24.4.0', 'firmware.dfu');
-  const meta = JSON.parse(fs.readFileSync(path.join(dir, 'N0120', '24.4.0', 'metadata.json'), 'utf8'));
-  assert.equal(meta.sha256, sha256(fs.readFileSync(file)));
-  assert.equal(meta.version, '24.4.0');
-  // the same version again: not downloaded again
   await cache.refreshAll();
-  assert.equal(nw.calls.filter((c) => c[0] === 'dfu').length, 1);
-  // a kept file whose bytes no longer match is not served; a new download with other bytes doesn't replace a file
+  assert.equal(nw.calls.filter((c) => c[0] === 'dfu' && c[1] === 'N0120').length, 2, 'stable and beta once each, not again');
+  const file = path.join(dir, 'N0120', 'stable', '24.4.0', 'firmware.dfu');
   fs.writeFileSync(file, 'tampered');
-  assert.throws(() => cache.firmware('N0120', '24.4.0'), (e) => e.i18n.code === 'fw.notCached');
+  assert.throws(() => cache.firmware('N0120', '24.4.0', 'stable'), (e) => e.i18n.code === 'fw.notCached');
   await cache.refreshAll();
   assert.equal(fs.readFileSync(file, 'utf8'), 'tampered', 'never overwritten');
   assert.equal(cache.info('N0120').cache.error.code, 'fw.cacheConflict');
 });
 
-test('cache: the index survives a restart', async () => {
+test('cache: an older index (only the N0120) gets every seeded model on load', async () => {
+  const dir = path.join(tmp, 'old-index');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ knownModels: ['N0120'], models: {} }));
   const nw = fakeNumWorks();
-  const { cache, dir } = newCache(nw);
-  await cache.refreshAll();
+  const c = new FirmwareCache({ dir, fetchInfo: nw.fetchInfo, fetchFirmware: nw.fetchFirmware, timers: fakeTimers() });
+  assert.deepEqual(c.index.knownModels, SEED_MODELS);
+  await c.refreshAll();
   const again = new FirmwareCache({ dir, fetchInfo: nw.fetchInfo, fetchFirmware: nw.fetchFirmware, timers: fakeTimers() });
-  assert.equal(again.info('N0120').version, '24.4.0');
-  assert.ok(again.index.lastChecked);
+  assert.equal(again.info('N0120').version, '24.4.0', 'and survives a restart');
+});
+
+test('version: a kept beta is labeled, and never the default unless the calculator runs it', () => {
+  const info = { version: '24.4.0', patch_level: 'p', channel: 'stable', versions: [
+    { version: '25.0.0', channel: 'beta', patch_level: 'b' }, { version: '24.4.0', channel: 'stable', patch_level: 'p' }] };
+  let c = firmwareChoices(info, { version: '20.0.0' });
+  assert.equal(c.selected, '24.4.0');
+  assert.equal(c.options.find((o) => o.version === '25.0.0').channel, 'beta');
+  c = firmwareChoices(info, { version: '25.0.0' });
+  assert.equal(c.selected, '25.0.0', 'on the beta already: stay on it');
 });
 
 // ------------------------------------------------------------------ numplay.js: pinned and checked
@@ -274,8 +326,8 @@ test('server: security headers on every response; /api/firmware reads only the c
       if (p === '/api/firmware/N0120.json') {
         const j = await r.json();
         assert.equal(j.version, '24.4.0');
-        assert.deepEqual(j.versions.map((v) => v.version), ['24.4.0']);
-      } else if (p.includes('.dfu')) assert.equal(Buffer.from(await r.arrayBuffer()).toString(), 'firmware N0120 24.4.0');
+        assert.deepEqual(j.versions.map((v) => v.version + ' ' + v.channel), ['25.0.0 beta', '24.4.0 stable']);
+      } else if (p.includes('.dfu')) assert.equal(Buffer.from(await r.arrayBuffer()).toString(), 'firmware N0120 stable 24.4.0');
       else await r.arrayBuffer();
     }
     assert.equal(hits, 0, 'no request reached NumWorks');

@@ -395,7 +395,8 @@ function drawFwVersions() {
   const sel = $('#fw-version'), c = st.fwChoice;
   sel.textContent = '';
   for (const o of c.options) {
-    const op = el('option', '', t('fw.opt.' + o.kind, { version: o.version, patch: o.patch || '?' }) + (o.available ? '' : ' ' + t('fw.opt.notKept')));
+    const op = el('option', '', t('fw.opt.' + o.kind, { version: o.version, patch: o.patch || '?' }) + (o.channel === 'beta' ? ' ' + t('fw.opt.beta') : '')
+      + (o.available ? '' : ' ' + t('fw.opt.notKept')));
     op.value = o.version;
     op.disabled = !o.available;
     sel.append(op);
@@ -434,7 +435,7 @@ function renderFirmware() {
 $('#fw-install').addEventListener('click', async () => {
   const i = st.info, p = fwPicked();
   if (!p?.available) return;
-  const f = { version: p.version, patch_level: p.patch, name: p.version };
+  const f = { version: p.version, patch_level: p.patch, name: p.version, channel: p.channel };
   const target = i.slot === 'A' ? 'B' : 'A';
   const keep = $('#fw-keep').checked;
   if (!await confirmDialog(() => t('fw.confirm', { version: f.version, patch: f.patch_level, slot: target }) + ' '
@@ -444,7 +445,7 @@ $('#fw-install').addEventListener('click', async () => {
     // 1. the firmware, from NumWorks through the local server
     log(`Downloading Epsilon ${f.version} for the ${i.model}…`);
     bar('progress.downloading')(0);
-    const r = await fetch(MOCK ? 'dev/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}`);
+    const r = await fetch(MOCK ? 'dev/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}&channel=${encodeURIComponent(f.channel || 'stable')}`);
     if (!r.ok) throw serverError(await r.json().catch(() => ({})), r.status);
     const elements = writableElements(parseDfuFile(new Uint8Array(await r.arrayBuffer())), st.dfu);
     if (!elements.length) throw uiError('fw.nothing', {}, 'Nothing in that firmware is for the part of the calculator that can be written now');

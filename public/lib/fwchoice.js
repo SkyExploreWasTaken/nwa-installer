@@ -3,7 +3,9 @@
 // Staying on the version the calculator runs is the default whenever that version is kept on this computer, so an
 // update is never forced; the other kept versions (newest first) and NumWorks' latest are offered next to it. Only when
 // the current version isn't kept does the default fall back to the latest.
-//   firmwareChoices(info, { version, patch }) -> { options: [{ version, patch, size, kind, available }], selected }
+//   firmwareChoices(info, { version, patch }) -> { options: [{ version, patch, size, kind, channel, available }], selected }
+//   channel: 'stable' or 'beta' (a version kept from NumWorks' beta channel is labeled as such; never the default
+//   unless the calculator already runs it)
 //   kind: 'current' | 'latest' | 'cached'; available: false when the file isn't kept yet (can't be installed)
 
 // newest first: 24.10.1 before 24.4.0 (numeric parts compared as numbers)
@@ -26,7 +28,7 @@ export function firmwareChoices(info, current) {
     const v = byVersion.get(version);
     const isLatest = version === latest;
     return { version, patch: v?.patch_level ?? (isLatest ? info.patch_level : null), size: v?.size ?? (isLatest ? info.size : 0),
-      kind, available: !!v };
+      kind, channel: v?.channel || (isLatest && info.channel) || 'stable', available: !!v };
   };
   const options = [];
   const currentKept = current && byVersion.has(current.version);
@@ -35,7 +37,8 @@ export function firmwareChoices(info, current) {
   if (latest) others.add(latest);
   if (currentKept) others.delete(current.version);
   for (const v of [...others].sort((a, b) => compareVersions(b, a))) options.push(opt(v, v === latest ? 'latest' : 'cached'));
+  const stable = (o) => o.available && o.channel !== 'beta';
   const selected = currentKept ? current.version
-    : (options.find((o) => o.kind === 'latest' && o.available) || options.find((o) => o.available) || options[0])?.version ?? null;
+    : (options.find((o) => o.kind === 'latest' && stable(o)) || options.find(stable) || options.find((o) => o.available) || options[0])?.version ?? null;
   return { options, selected };
 }

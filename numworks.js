@@ -2,16 +2,19 @@
 // NumWorks' official firmware, from my.numworks.com. NumWorks only gives it to signed-in users, so the server signs
 // in with the account in numworks-account.json (next to server.js, never served, never committed) and keeps the
 // session in memory, signing in again when it expires. The page only ever gets the firmware.
-//   /api/firmware/N0120.json   what my.numworks.com offers now for that model ({ name, version, patch_level, ... })
-//   /api/firmware/N0120.dfu    its firmware (?version= to ask for the one the .json named)
+// The page's requests read only from the disk cache (firmware-cache.js), which an hourly timer fills for every known
+// model and channel (stable, beta).
+//   /api/firmware/N0120.json   the latest offer as last checked ({ name, version, patch_level, ... }), plus versions: the
+//                              firmware kept for that model (newest first, each with its channel), channels: each
+//                              channel's offer, and cache: { lastChecked, offline }
+//   /api/firmware/N0120.dfu    a kept firmware (?version= one of the versions, &channel= stable or beta; none: the latest)
 'use strict';
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path');
-const { FirmwareCache } = require('./firmware-cache.js');
+const { FirmwareCache, normalizeModel, isModel } = require('./firmware-cache.js');
 
 // (tools/test-numworks.mjs points these at a pretend my.numworks.com and account)
 const NW = process.env.NUMWORKS_URL || 'https://my.numworks.com';
 const ACCOUNT_FILE = process.env.NUMWORKS_ACCOUNT || path.join(__dirname, 'numworks-account.json');
-const MODELS = new Set(['N0100', 'N0110', 'N0115', 'N0120']);
 const UA = 'nwa-installer (local)';
 const RETRIES = 3;  // (the network can be flaky)
 
@@ -112,19 +115,10 @@ async function get(p, accept) {
   }
 }
 
-// the version NumWorks' updater page offers now: its `flash` setting, in the page's HTML ("stable" for most accounts)
-async function latestVersion() {
-  const r = await get('/devices/upgrade', 'text/html');
-  if (r.status !== 200) throw new HttpError(502, 'my.numworks.com/devices/upgrade: HTTP ' + r.status, 'nw.upgradeHttp', { status: r.status });
-  const html = r.body.toString('utf8').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-  const m = /[\s:"']flash["']?\s*[=:]\s*["']*([0-9A-Za-z._-]+)/.exec(html);
-  if (!m) throw new HttpError(502, 'Could not find the firmware version on my.numworks.com/devices/upgrade', 'nw.noVersion');
-  return m[1];
-}
-
-// what NumWorks offers now for a model: { name: the version name its updater uses, info: its .json }
-async function fetchInfo(model) {
-  const v = await latestVersion();
+// what NumWorks offers now for a model on a channel: { name: the channel's file name, info: its .json }. The channel is
+// the name NumWorks' updater uses for the file (stable.json, beta.json); HTTP 404 when it has no such model or channel.
+async function fetchInfo(model, channel = 'stable') {
+  const v = channel;
   const r = await get(`/firmwares/${model}/${encodeURIComponent(v)}.json`, 'application/json');
   if (r.status !== 200) throw new HttpError(r.status === 404 ? 404 : 502, `my.numworks.com: HTTP ${r.status} for ${model} ${v}.json`, 'nw.firmwareHttp', { status: r.status, file: `${model} ${v}.json` });
   try { return { name: v, info: JSON.parse(r.body.toString('utf8')) }; } catch { throw new HttpError(502, 'my.numworks.com did not send JSON for ' + model, 'nw.notJson', { model }); }
@@ -143,16 +137,17 @@ const cache = new FirmwareCache({ dir: process.env.NWA_FW_CACHE || path.join(__d
 
 // answers /api/firmware/...; resolves false for other paths. Never reaches my.numworks.com itself.
 async function handle(req, res, url, send) {
-  const m = /^\/api\/firmware\/(N\d{4})\.(json|dfu)$/.exec(url.pathname);
+  const m = /^\/api\/firmware\/([0-9A-Za-z_]{1,64})\.(json|dfu)$/.exec(url.pathname);
   if (!m) return false;
-  const [, model, ext] = m, version = url.searchParams.get('version');
-  if (!MODELS.has(model)) { send(res, 400, fail('Unknown model ' + model, 'nw.unknownModel', { model })); return true; }
+  const [, raw, ext] = m, version = url.searchParams.get('version'), channel = url.searchParams.get('channel');
+  const model = normalizeModel(raw);
+  if (!isModel(model)) { send(res, 400, fail('Unknown model ' + raw, 'nw.unknownModel', { model: raw })); return true; }
   if (version && !/^[0-9A-Za-z._-]{1,40}$/.test(version)) { send(res, 400, fail('Bad version', 'nw.badVersion')); return true; }
   try {
     if (ext === 'json') { send(res, 200, cache.info(model)); return true; }
-    const f = cache.firmware(model, version);
+    const f = cache.firmware(model, version, channel || undefined);
     res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': f.body.length, 'Cache-Control': 'no-store',
-      'X-Firmware-Name': f.version });
+      'X-Firmware-Name': f.version, 'X-Firmware-Channel': f.channel });
     res.end(f.body);
   } catch (e) {
     if (!e.i18n) throw e;
