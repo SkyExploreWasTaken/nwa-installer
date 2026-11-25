@@ -9,6 +9,7 @@ import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall } from './lib/install.js';
 import { parseStorage, buildStorage, recordSize, MAX_RECORD } from './lib/storage.js';
 import { firmwareChoices } from './lib/fwchoice.js';
+import { saveModel } from './lib/model.js';
 import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
@@ -109,9 +110,10 @@ async function connect(dev) {
     st.dev = st.dfu = st.info = st.scan = null;
     throw uiError('connect.retry', {}, e.message + '. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.', e);
   }
-  log(`Connected: ${st.info.model}${st.info.modelGuessed ? ' (guessed from its memory layout: ' + st.info.modelMethod + ')' : ' (from its USB descriptor)'}, Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
+  log(`Connected: ${st.info.model ? st.info.model + (st.info.modelSource === 'usb' ? ' (from its USB descriptor)' : ' (picked before for this calculator)') : 'model not given by its software, asking'}, Epsilon ${st.info.version} (${st.info.patch}), app area ${hex(st.info.appsStart)}–${hex(st.info.appsEnd)}`);
   await rescan();
-  status(T('connect.ok', { name: dev.productName || 'NumWorks', model: st.info.model }), 'ok');
+  st.modelAsk = !st.info.model;
+  status(T('connect.ok', { name: dev.productName || 'NumWorks', model: modelLabel(st.info.model) }), 'ok');
   loadTools().catch((e) => log('Linker: ' + e.message));
 }
 
@@ -130,6 +132,35 @@ navigator.usb?.addEventListener('disconnect', (e) => {
     log('Calculator disconnected');
     render();
   }
+});
+
+// ------------------------------------------------------------------ the model, when the software doesn't say
+// (model.js: never guessed; the memories only leave out the models it can't be)
+const modelLabel = (m) => (!m ? t('model.unknown') : m.startsWith('N0120_PORTUGAL') ? t('model.portugal') : m);
+function drawModelAsk() {
+  const i = st.info, ask = $('#model-ask');
+  ask.hidden = !i || !st.modelAsk;
+  $('#model-change').hidden = !i || st.modelAsk || i.modelSource !== 'user';
+  if (ask.hidden) return;
+  const sel = $('#model-pick'), keep = sel.value || i.model || '';
+  sel.textContent = '';
+  const first = el('option', '', t('model.pick')); first.value = ''; sel.append(first);
+  for (const m of i.modelChoices) { const o = el('option', '', modelLabel(m)); o.value = m; sel.append(o); }
+  sel.value = i.modelChoices.includes(keep) ? keep : '';
+  $('#model-ok').disabled = st.busy || !sel.value;
+}
+$('#model-pick').addEventListener('change', () => { $('#model-ok').disabled = st.busy || !$('#model-pick').value; });
+$('#model-change').addEventListener('click', () => { st.modelAsk = true; render(); });
+$('#model-ok').addEventListener('click', () => {
+  const m = $('#model-pick').value;
+  if (!m || !st.info || !st.info.modelChoices.includes(m)) return;
+  Object.assign(st.info, { model: m, modelSource: 'user' });
+  saveModel(st.info.serial, m);
+  st.modelAsk = false;
+  st.fw = st.fwChoice = null;  // (what was checked was for no model, or another one)
+  log('Model picked for this calculator: ' + m);
+  status(T('connect.ok', { name: st.dev?.productName || 'NumWorks', model: modelLabel(m) }), 'ok');
+  render();
 });
 
 // ------------------------------------------------------------------ backups and restore
@@ -223,6 +254,7 @@ function render() {
   const on = !!st.info;
   $('#s-apps').hidden = $('#s-new').hidden = $('#s-fw').hidden = !on;
   $('#info').hidden = !on;
+  if (!on) { $('#model-ask').hidden = true; $('#model-change').hidden = true; }
   $('#connect').textContent = t(on ? 'connect.again' : 'connect.button');
   for (const b of document.querySelectorAll('#s-apps button, #s-new button:not(.np button), #s-fw button, #connect')) b.disabled = st.busy || (b.id !== 'connect' && !on) || (b.id === 'connect' && NO_USB);
   if (!on) return;
@@ -232,7 +264,8 @@ function render() {
   const info = $('#info');
   info.textContent = '';
   const add = (k, v) => { const d = el('div'); d.append(el('dt', '', k), el('dd', '', v)); info.append(d); };
-  add(t('info.model'), i.modelGuessed ? t('info.modelGuessed', { model: i.model }) : i.model);
+  add(t('info.model'), !i.model ? t('info.modelUnknown') : i.modelSource === 'user' ? t('info.modelChosen', { model: modelLabel(i.model) }) : modelLabel(i.model));
+  drawModelAsk();
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
   add(t('info.nwagra'), i.nwagraOk ? t('info.areaVal', { start: hex(i.appsStart), end: hex(i.nwagraEnd), size: i.nwagraEnd - i.appsStart }) : t('info.nwagraNo'));
@@ -365,7 +398,8 @@ const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
   // (a guessed model could be the wrong one: an N0115 can look like an N0110, and its firmware is not the same)
-  if (st.info.modelGuessed && !MOCK) { fwSetup(T('fw.modelGuessed')); return; }
+  // (firmware only for a model that's certain: from the USB descriptor, or read off the calculator by its owner)
+  if (!st.info.model) { fwSetup(T('fw.modelUnknown')); return; }
   const s = MOCK ? { account: true } : await fetch('api/status').then((r) => r.json()).catch(() => null);
   if (!s) { fwSetup(T('fw.needServer')); return; }
   if (!s.account) { fwSetup(s.error ? () => errText(s.code ? s : { message: s.error }) : T('fw.needAccount')); return; }

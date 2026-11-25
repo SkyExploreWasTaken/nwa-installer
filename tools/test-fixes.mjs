@@ -5,7 +5,7 @@
 //  - firmware-cache.js: all known models seeded; stable and beta kept per model, channel and version; checks once at
 //    start and then every hour; requests only read the cache; a missing channel or model is skipped; falls back to the
 //    kept copies when NumWorks can't be reached; a model not on the list is added when first seen; never overwrites
-//  - model.js: the model from the USB descriptor, else guessed from the memories (all five models)
+//  - model.js: the model only when certain (USB descriptor) or picked by the person; memories only narrow the choices
 //  - numplay.js: only the manifest's paths, only bytes matching their pinned sha256
 //  - server.js: security headers on every response; /api/firmware answers from the cache without any network
 //   node tools/test-fixes.mjs
@@ -257,7 +257,7 @@ test('version: a kept beta is labeled, and never the default unless the calculat
 });
 
 // ------------------------------------------------------------------ which model (model.js)
-const { detectModel, usbVersionOf } = await import('../public/lib/model.js');
+const { detectModel, usbVersionOf, possibleModels, savedModel, saveModel, MODELS } = await import('../public/lib/model.js');
 // the memories each model's DFU interface shows (Epsilon's usb_userland.h / Upsilon.js)
 const MEM = {
   N0100: [{ name: 'Internal Flash', segments: [{ start: 0x08000000, end: 0x08100000 }] }, { name: 'SRAM', segments: [{ start: 0x20000000, end: 0x20040000 }] }],
@@ -265,33 +265,48 @@ const MEM = {
   N0115: [{ name: 'Flash', segments: [{ start: 0x90030000, end: 0x90400000 }] }, { name: 'SRAM', segments: [{ start: 0x20000000, end: 0x20040000 }] }],
   N0120: [{ name: 'Flash', segments: [{ start: 0x90030000, end: 0x90400000 }] }, { name: 'SRAM', segments: [{ start: 0x24000000, end: 0x2403f000 }] }],
 };
+MEM.N0120_PORTUGAL_PROTOTYPE_20210930 = MEM.N0120;
 // a WebUSB device as the calculator describes itself: bcdDevice 0x0115 is 1.1.5
-const usbDev = (bcd, productName = 'NumWorks Calculator') => ({ productName, deviceVersionMajor: bcd >> 8, deviceVersionMinor: (bcd >> 4) & 15, deviceVersionSubminor: bcd & 15 });
+const usbDev = (bcd, productName = 'NumWorks Calculator', serialNumber = 'SER' + bcd) => ({ productName, serialNumber,
+  deviceVersionMajor: bcd >> 8, deviceVersionMinor: (bcd >> 4) & 15, deviceVersionSubminor: bcd & 15 });
+// a localStorage stand-in
+const memStore = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; };
 
-test('model: N0110, N0115, N0120 from the USB descriptor (bcdDevice)', () => {
+test('model: N0110, N0115, N0120 are certain from the USB descriptor (bcdDevice)', () => {
   for (const [model, bcd] of [['N0110', 0x0110], ['N0115', 0x0115], ['N0120', 0x0120]]) {
     const d = usbDev(bcd);
-    assert.deepEqual(detectModel({ usbVersion: usbVersionOf(d), productName: d.productName, layouts: MEM[model] }), { model, method: 'usb', guessed: false }, model);
+    assert.deepEqual(detectModel({ usbVersion: usbVersionOf(d), productName: d.productName, layouts: MEM[model] }), { model, certain: true, choices: [model] }, model);
   }
-  // the descriptor wins over the memories: an N0115 shows the N0110's
-  assert.equal(detectModel({ usbVersion: [1, 1, 5], layouts: MEM.N0110 }).model, 'N0115');
+  assert.equal(detectModel({ usbVersion: [1, 1, 5], layouts: MEM.N0110 }).model, 'N0115', 'the descriptor, not the memories');
 });
 
-test('model: N0100 (bcdDevice 0x0100, as every Epsilon 15) from its 1 MB internal flash, marked guessed', () => {
-  assert.deepEqual(detectModel({ usbVersion: usbVersionOf(usbDev(0x0100)), layouts: MEM.N0100 }), { model: 'N0100', method: 'memory', guessed: true });
+test('model: no certain descriptor, no guess: the memories only narrow the choices', () => {
+  // every model with an old descriptor (0x0100) or none: never picked, only the impossible ones left out
+  const expect = { N0100: ['N0100'], N0110: ['N0110', 'N0115'], N0115: ['N0110', 'N0115'],
+    N0120: ['N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'], N0120_PORTUGAL_PROTOTYPE_20210930: ['N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'] };
+  for (const m of MODELS) {
+    const r = detectModel({ usbVersion: [1, 0, 0], layouts: MEM[m] });
+    assert.equal(r.model, null, m + ': no guess');
+    assert.equal(r.certain, false);
+    assert.deepEqual(r.choices, expect[m], m);
+  }
+  assert.equal(detectModel({ usbVersion: [1, 1, 0], productName: 'Upsilon Calculator', layouts: MEM.N0110 }).model, null, 'Upsilon: not trusted');
+  assert.deepEqual(possibleModels([]), MODELS, 'no memories known: every model offered');
+  assert.ok(!possibleModels(MEM.N0110).includes('N0100'), 'external flash: no N0100');
 });
 
-test('model: Epsilon 15 or Upsilon on an N0110 falls back on the memories, marked guessed', () => {
-  assert.deepEqual(detectModel({ usbVersion: [1, 0, 0], layouts: MEM.N0110 }), { model: 'N0110', method: 'memory', guessed: true });
-  assert.deepEqual(detectModel({ usbVersion: [1, 1, 0], productName: 'Upsilon Calculator', layouts: MEM.N0110 }), { model: 'N0110', method: 'memory', guessed: true });
-  assert.deepEqual(detectModel({ usbVersion: null, layouts: MEM.N0120 }), { model: 'N0120', method: 'memory', guessed: true }, 'no descriptor (the mock)');
+test('model: the picked model is remembered per serial number, and only when still possible', () => {
+  const store = memStore();
+  saveModel('ABC', 'N0115', store);
+  assert.equal(savedModel('ABC', ['N0110', 'N0115'], store), 'N0115');
+  assert.equal(savedModel('XYZ', ['N0110', 'N0115'], store), null, 'another calculator');
+  assert.equal(savedModel('ABC', ['N0100'], store), null, 'not possible for these memories');
+  saveModel('ABC', 'N9999', store);
+  assert.equal(savedModel('ABC', ['N0110', 'N0115'], store), 'N0115', 'not a model: not saved');
+  assert.equal(savedModel(null, MODELS, store), null, 'no serial: nothing remembered');
 });
 
-test('model: the Portugal prototype shows as an N0120 (nothing public tells it apart)', () => {
-  assert.equal(detectModel({ usbVersion: [1, 2, 0], layouts: MEM.N0120 }).model, 'N0120');
-});
-
-test('model: readInfo takes the model from the USB device', async () => {
+test('model: readInfo uses the descriptor, else a saved pick, else asks (null)', async () => {
   const { readInfo } = await import('../public/lib/calc.js');
   // a calculator whose RAM holds the slot info, and the headers it points at
   const mem = new Map();
@@ -305,12 +320,19 @@ test('model: readInfo takes the model from the USB device', async () => {
     ...le(0x24010000), ...le(0x24020000), ...USERLAND, ...new Array(16).fill(0)]);
   const dfu = { device: usbDev(0x0120), layouts: MEM.N0120,
     read: async (addr, n) => { for (const [a, b] of mem) if (addr === a) return Uint8Array.from({ length: n }, (_, i) => b[i] ?? 0); return new Uint8Array(n).fill(0xff); } };
-  const info = await readInfo(dfu);
-  assert.equal(info.model, 'N0120');
-  assert.equal(info.modelGuessed, false);
-  assert.equal(info.ramStart, 0x24000000);
-  dfu.device = usbDev(0x0100);
-  assert.equal((await readInfo(dfu)).modelGuessed, true, 'an old descriptor: guessed');
+  let info = await readInfo(dfu);
+  assert.deepEqual([info.model, info.modelSource, info.ramStart], ['N0120', 'usb', 0x24000000]);
+  // an old descriptor: nothing picked yet, so the page asks, with the N0120's two choices
+  const store = memStore();
+  globalThis.localStorage = store;
+  dfu.device = usbDev(0x0100, 'NumWorks Calculator', 'PT1');
+  info = await readInfo(dfu);
+  assert.equal(info.model, null);
+  assert.deepEqual(info.modelChoices, ['N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930']);
+  saveModel('PT1', 'N0120_PORTUGAL_PROTOTYPE_20210930', store);
+  info = await readInfo(dfu);
+  assert.deepEqual([info.model, info.modelSource], ['N0120_PORTUGAL_PROTOTYPE_20210930', 'user'], 'the pick, remembered');
+  delete globalThis.localStorage;
 });
 
 // ------------------------------------------------------------------ numplay.js: pinned and checked

@@ -259,3 +259,8 @@ dialog p { color: var(--muted); font-size: 14px; }
   .fw-cards { grid-template-columns: 1fr; }
   .fw-cards .arrow { transform: rotate(90deg); }
 }
+/* asking the model, when the calculator doesn't say */
+.model-ask { margin-top: 12px; display: grid; gap: 8px; }
+.model-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.model-row select { font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); min-height: 44px; flex: 1 1 200px; min-width: 0; }
+#model-change { margin-top: 8px; }
