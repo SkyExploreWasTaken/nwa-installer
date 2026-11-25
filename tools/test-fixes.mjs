@@ -116,7 +116,7 @@ function newCache(nw, timers = fakeTimers(), dir = path.join(tmp, 'fw' + cacheN+
 
 test('cache: every known model is seeded from the start', () => {
   const { cache } = newCache(fakeNumWorks());
-  assert.deepEqual(cache.index.knownModels, ['N0100', 'N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930']);
+  assert.deepEqual(cache.index.knownModels, ['N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930']);
   assert.deepEqual(SEED_MODELS, cache.index.knownModels);
 });
 
@@ -233,6 +233,20 @@ test('cache: files are never overwritten, and a changed one is not served', asyn
   await cache.refreshAll();
   assert.equal(fs.readFileSync(file, 'utf8'), 'tampered', 'never overwritten');
   assert.equal(cache.info('N0120').cache.error.code, 'fw.cacheConflict');
+});
+
+test('cache: the N0100 is never cached: not seeded, dropped from an old index, refused when asked', async () => {
+  const dir = path.join(tmp, 'n0100-index');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ knownModels: ['N0100', 'N0120'], models: { N0100: { channels: {} } } }));
+  const nw = fakeNumWorks();
+  const c = new FirmwareCache({ dir, fetchInfo: nw.fetchInfo, fetchFirmware: nw.fetchFirmware, timers: fakeTimers() });
+  assert.ok(!c.index.knownModels.includes('N0100') && !c.index.models.N0100, 'dropped on load');
+  await c.refreshAll();
+  assert.ok(!nw.calls.some((x) => x[1] === 'N0100'), 'never fetched');
+  assert.throws(() => c.info('N0100'), (e) => e.status === 400 && e.i18n.code === 'calc.n0100');
+  assert.throws(() => c.firmware('n0100'), (e) => e.i18n.code === 'calc.n0100');
+  assert.ok(!c.index.knownModels.includes('N0100'), 'not added by a request either');
 });
 
 test('cache: an older index (only the N0120) gets every seeded model on load', async () => {

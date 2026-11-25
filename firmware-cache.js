@@ -5,14 +5,16 @@
 //   cache/firmware/index.json                                  known models, per channel: last check, what was offered
 //   cache/firmware/<model>/<channel>/<version>/firmware.dfu    every firmware downloaded, kept for good (never overwritten)
 //   cache/firmware/<model>/<channel>/<version>/metadata.json   NumWorks' .json for it, plus sha256, size, when saved
-// All the models NumWorks makes are known from the start (SEED_MODELS). A model or channel NumWorks doesn't offer
+// The models this installer supports are known from the start (SEED_MODELS; not the N0100). A model or channel NumWorks doesn't offer
 // (HTTP 404) is normal: logged and skipped, not an error. A model not on the list that a page asks about is added, and
 // its first check started right away rather than at the next hourly tick; after that, only the timer fetches.
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 
 const HOUR = 3600 * 1000;
-const SEED_MODELS = ['N0100', 'N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'];
+const SEED_MODELS = ['N0110', 'N0115', 'N0120', 'N0120_PORTUGAL_PROTOTYPE_20210930'];
+// models this installer doesn't support: never cached, and dropped from an index kept from before
+const UNSUPPORTED = ['N0100'];
 const CHANNELS = ['stable', 'beta'];
 const SAFE = /^[0-9A-Za-z._-]{1,40}$/;
 // a model name as the site identifies them (upper case: N0120, N0120_PORTUGAL_PROTOTYPE_20210930)
@@ -58,7 +60,8 @@ class FirmwareCache {
     try { ix = JSON.parse(fs.readFileSync(this.indexFile, 'utf8')); } catch { /* none yet, or unreadable: start over */ }
     if (!ix || typeof ix !== 'object' || !Array.isArray(ix.knownModels)) ix = { knownModels: [], lastChecked: null, models: {} };
     ix.models ||= {};
-    ix.knownModels = [...new Set([...SEED_MODELS, ...ix.knownModels.map(normalizeModel)])].filter(isModel);
+    ix.knownModels = [...new Set([...SEED_MODELS, ...ix.knownModels.map(normalizeModel)])].filter((m) => isModel(m) && !UNSUPPORTED.includes(m));
+    for (const m of UNSUPPORTED) delete ix.models[m];
     for (const m of ix.knownModels) {
       ix.models[m] ||= emptyModel();
       ix.models[m].channels ||= {};
@@ -88,6 +91,7 @@ class FirmwareCache {
   recognize(model) {
     const m = normalizeModel(model);
     if (!isModel(m)) throw new CacheError(400, 'Unknown model ' + model, 'nw.unknownModel', { model });
+    if (UNSUPPORTED.includes(m)) throw new CacheError(400, 'The ' + m + ' is not supported by this installer', 'calc.n0100', {});
     if (this.index.knownModels.includes(m)) return m;
     this.index.knownModels.push(m);
     this.index.models[m] = emptyModel(new Date(this.now()).toISOString());
@@ -219,4 +223,4 @@ class FirmwareCache {
   }
 }
 
-module.exports = { FirmwareCache, CacheError, compareVersions, normalizeModel, isModel, HOUR, SEED_MODELS, CHANNELS };
+module.exports = { FirmwareCache, CacheError, compareVersions, normalizeModel, isModel, HOUR, SEED_MODELS, UNSUPPORTED, CHANNELS };
