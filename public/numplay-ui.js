@@ -26,12 +26,15 @@ export function initNumPlay({ log, free, add }) {
     b.addEventListener('click', () => { if (VIEWS.includes(b.dataset.view)) { saveView(storage() || {}, b.dataset.view); drawView(b.dataset.view); } });
   }
 
-  $('#np-open').addEventListener('click', async () => {
-    const open = $('#np').hidden;
-    $('#np').hidden = !open;
-    $('#np-open').setAttribute('aria-expanded', String(open));
-    if (open) await load();
-  });
+  // NumPlay, Retro-Go and NumPico each have their own "Build your ..." button and panel, and each makes an app of its own
+  for (const [btn, panel] of [['#np-open', '#np'], ['#rg-open', '#rg'], ['#pk-open', '#pk']]) {
+    $(btn).addEventListener('click', async () => {
+      const open = $(panel).hidden;
+      $(panel).hidden = !open;
+      $(btn).setAttribute('aria-expanded', String(open));
+      if (open) await load();
+    });
+  }
 
   async function load() {
     if (st.kit) return render();
@@ -84,13 +87,13 @@ export function initNumPlay({ log, free, add }) {
     const rg = st.kit.retroGo, pk = st.kit.numPico;
     if (rg) {
       $('#np-rom-file').accept = extensions(st.kit.romSystems).join(',');
-      $('#np-roms').hidden = false;
+      $('#rg-open').hidden = false;
       dropOn($('#np-roms'), addRoms);
       $('#np-rom-file').addEventListener('change', (e) => { addRoms([...e.target.files]); e.target.value = ''; });
     }
     if (pk) {
       $('#np-carts').title = [pk.title, pk.credit].filter(Boolean).join('\n');  // (the kit's own words)
-      $('#np-carts').hidden = false;
+      $('#pk-open').hidden = false;
       dropOn($('#np-carts'), addCarts);
       $('#np-cart-file').addEventListener('change', (e) => { addCarts([...e.target.files]); e.target.value = ''; });
     }
@@ -114,8 +117,6 @@ export function initNumPlay({ log, free, add }) {
     for (const f of files) {
       try {
         const r = st.kit.romFrom(new Uint8Array(await f.arrayBuffer()), f.name);
-        if (r.sys === MEGA_DRIVE && !st.roms.some((x) => x.sys === MEGA_DRIVE))
-          status(() => t('np.megaDrive'));
         st.roms.push(r);
       } catch (e) { status(() => t('np.fileError', { file: f.name, msg: errText(e) })); }
     }
@@ -223,16 +224,21 @@ export function initNumPlay({ log, free, add }) {
     $('#np-rom-list').replaceChildren(...st.roms.map((r) => chip(r, r.name, SYSTEMS[r.sys].tag, null, st.roms)));
     $('#np-cart-list').replaceChildren(...st.carts.map((c) => chip(c, c.title, c.url ? '' : 'P8', c.url, st.carts)));
 
-    const n = st.picked.length + st.roms.length + st.carts.length, room = free();
-    const total = st.kit.estimate({ ids: pickedGames(), extras: pickedExtras(), roms: st.roms, carts: st.carts, lang: st.lang });
-    const over = room != null && total > room, alone = st.roms.some((r) => r.sys === MEGA_DRIVE);
-    const what = alone ? t('np.count.retro', { count: st.roms.length }) : t('np.count.games', { count: n });
-    $('#np-plan').textContent = !n ? t('np.none')
-      : room == null ? t('np.plan', { what, size: total })
-      : over ? t('np.plan.over', { what, size: total, over: total - room, free: Math.max(0, room) })
-      : t('np.plan.room', { what, size: total, free: room });
-    $('#np-plan').classList.toggle('warn', over);
-    $('#np-add').disabled = st.busy || !n || over;
+    // each of the three apps: how many things, what it takes, and whether it fits what's free
+    const room = free();
+    const plan = (box, add, n, total, what) => {
+      const over = room != null && total > room;
+      $(box).textContent = !n ? t('np.none')
+        : room == null ? t('np.plan', { what, size: total })
+        : over ? t('np.plan.over', { what, size: total, over: total - room, free: Math.max(0, room) })
+        : t('np.plan.room', { what, size: total, free: room });
+      $(box).classList.toggle('warn', over);
+      $(add).disabled = st.busy || !n || over;
+    };
+    const n = st.picked.length;
+    plan('#np-plan', '#np-add', n, st.kit.estimate({ ids: pickedGames(), extras: pickedExtras(), lang: st.lang }), t('np.count.games', { count: n }));
+    plan('#rg-plan', '#rg-add', st.roms.length, st.kit.estimateRetroGo(st.roms), t('np.count.retro', { count: st.roms.length }));
+    plan('#pk-plan', '#pk-add', st.carts.length, st.kit.estimate({ carts: st.carts, lang: st.lang }), t('np.count.games', { count: st.carts.length }));
   }
 
   // the builder's status line: a function giving its text (or null), kept to redraw on a language change
@@ -250,26 +256,32 @@ export function initNumPlay({ log, free, add }) {
   // the install options change the space left
   ['#keep', '#nwagra'].forEach((s) => $(s).addEventListener('change', render));
 
-  $('#np-add').addEventListener('click', async () => {
+  // one build, for any of the three: make() -> { bytes, name }, count: what's in it; the result goes on top of the apps to install
+  async function make(make, count, fallback) {
     st.busy = true;
     render();
-    const name = $('#np-name').value.trim() || 'NumPlay';
     try {
       status(() => t('np.linking'));
-      const out = await st.kit.build({ ids: pickedGames(), extras: pickedExtras(), roms: st.roms, carts: st.carts, lang: st.lang,
-        variant: st.variant, name, matrices: $('#np-opens').value === 'matrices', hint: $('#np-hint').checked, secret: +$('#np-secret').value });
-      await add(out.bytes, out.name.replace(/[^\w.-]+/g, '') || 'NumPlay');
-      const n = st.picked.length + st.roms.length + st.carts.length;
-      log(`Made ${out.name} with ${n} game(s): it's in the apps to install`);
+      const out = await make();
+      await add(out.bytes, out.name.replace(/[^\w.-]+/g, '') || fallback);
+      log(`Made ${out.name} with ${count} game(s): it's in the apps to install`);
       status(() => t('np.added', { name: out.name }));
     } catch (e) {
       status(() => t('np.buildFailed', { msg: errText(e) }));
-      log('NumPlay: ' + e.message);
+      log(fallback + ': ' + e.message);
     } finally {
       st.busy = false;
       render();
     }
-  });
+  }
+  $('#np-add').addEventListener('click', () => make(() => st.kit.build({ ids: pickedGames(), extras: pickedExtras(), lang: st.lang,
+    variant: st.variant, name: $('#np-name').value.trim() || 'NumPlay', matrices: $('#np-opens').value === 'matrices', hint: $('#np-hint').checked,
+    secret: +$('#np-secret').value }), st.picked.length, 'NumPlay'));
+  // Retro-Go: an app of its own, for any of its systems
+  $('#rg-add').addEventListener('click', () => make(async () => ({ bytes: await st.kit.buildRetroGo(st.roms), name: 'RetroGo' }), st.roms.length, 'RetroGo'));
+  // NumPico: NumPlay's launcher holding only NumPico, named as you like
+  $('#pk-add').addEventListener('click', () => make(() => st.kit.build({ ids: [], carts: st.carts, lang: st.lang,
+    name: $('#pk-name').value.trim() || 'NumPico' }), st.carts.length, 'NumPico'));
 
   return { render };
 }

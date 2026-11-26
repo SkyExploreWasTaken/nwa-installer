@@ -143,16 +143,21 @@ export class NumPlayKit {
 
   // NumPlay's own bytes: with the library its games (and Retro-Go) call, or only the launcher when the games are all
   // big ones
-  launcherBytes(ids, roms, lang = 'en') {
+  launcherBytes(ids, roms, lang = 'en', carts = []) {
     const k = this.langs[lang] || this.en;
-    return ids.some((id) => !this.en.byId[id].xl) || roms.length ? k.base : k.baseAlone || k.base;
+    return ids.some((id) => !this.en.byId[id].xl) || roms.length || carts.length ? k.base : k.baseAlone || k.base;
+  }
+  // about what Retro-Go as an app of its own (the only way it's made now) takes in the calculator's flash
+  estimateRetroGo(roms) {
+    if (!roms.length) return 0;
+    return (this.retroGo.appFlash || this.retroGo.flash) + ROM_HEAD + roms.reduce((n, r) => n + r.flash, 0);
   }
   // about what a NumPlay of these games, extra apps, ROMs and carts takes in the calculator's flash
   estimate({ ids = [], extras = [], roms = [], carts = [], lang = 'en' }) {
     const romBytes = roms.reduce((n, r) => n + r.flash, 0);
     if (retroGoAlone(roms)) return (this.retroGo.appFlash || this.retroGo.flash) + ROM_HEAD + romBytes;
     if (!ids.length && !extras.length && !roms.length && !carts.length) return 0;
-    let n = this.launcherBytes(ids, roms, lang) + ids.reduce((t, id) => t + this.game(id, lang).flash, 0)
+    let n = this.launcherBytes(ids, roms, lang, carts) + ids.reduce((t, id) => t + this.game(id, lang).flash, 0)
       + extras.reduce((t, a) => t + a.flash, 0) + this.en.runtime;
     if (roms.length) n += this.game(this.retroGo.id, lang).flash + ROM_HEAD + romBytes;
     if (carts.length) n += this.game(this.numPico.id, lang).flash + 12 + carts.reduce((t, c) => t + c.flash, 0);

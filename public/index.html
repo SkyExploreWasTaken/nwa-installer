@@ -110,7 +110,7 @@
       </div>
       <button id="np-open" class="numplay-link" type="button" aria-expanded="false" aria-controls="np">
         <span class="np-icon" aria-hidden="true">&#9654;</span>
-        <span><b data-i18n="np.open">Build a NumPlay</b><span class="muted" data-i18n="np.open.sub">One app with the games you pick, from NumPlay's launcher and games.</span></span>
+        <span><b data-i18n="np.open">Build your NumPlay</b><span class="muted" data-i18n="np.open.sub">One app with the games you pick, from NumPlay's launcher and games.</span></span>
         <span class="np-go" aria-hidden="true">&#8250;</span>
       </button>
       <div id="np" class="np" hidden>
@@ -131,21 +131,6 @@
         <p id="np-status" class="note"></p>
         <div id="np-grid" class="np-grid" role="group" aria-label="Games" data-i18n-aria-label="np.games"></div>
 
-        <div id="np-roms" class="np-own" hidden>
-          <div class="np-own-head">
-            <span><b>Retro-Go</b> <span id="np-roms-what" class="muted"></span></span>
-            <label class="link"><span data-i18n="np.roms.add">Add games…</span><input id="np-rom-file" type="file" multiple hidden></label>
-          </div>
-          <ul id="np-rom-list" class="chips"></ul>
-        </div>
-        <div id="np-carts" class="np-own" hidden>
-          <div class="np-own-head">
-            <span><b>NumPico</b> <span class="muted" data-i18n="np.carts.what">Your PICO-8 carts (.p8 or .p8.png)</span></span>
-            <label class="link"><span data-i18n="np.carts.add">Add carts…</span><input id="np-cart-file" type="file" accept=".p8,.png,application/octet-stream,text/plain,image/png" multiple hidden></label>
-          </div>
-          <ul id="np-cart-list" class="chips"></ul>
-        </div>
-
         <div class="np-look">
           <div>
             <span class="k" data-i18n="np.looks">Looks like</span>
@@ -164,6 +149,49 @@
         </div>
         <p class="note credit" data-i18n-rich="np.credit">NumPlay's launcher and games are by Mason Chen: <a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a> (GPL-3.0). Retro-Go by ducalex, NumPico with femto8 by Ben Baker. They're fetched from NumPlay's site and linked here.
           Your own games and carts stay on this computer: bring only those you own.</p>
+      </div>
+
+      <button id="rg-open" class="numplay-link" type="button" aria-expanded="false" aria-controls="rg" hidden>
+        <span class="np-icon" aria-hidden="true">&#9654;</span>
+        <span><b data-i18n="rg.open">Build your Retro-Go</b><span class="muted" data-i18n="rg.open.sub">An app of its own that plays your Game Boy, NES and Sega games.</span></span>
+        <span class="np-go" aria-hidden="true">&#8250;</span>
+      </button>
+      <div id="rg" class="np" hidden>
+        <div id="np-roms" class="np-own">
+          <div class="np-own-head">
+            <span><b>Retro-Go</b> <span id="np-roms-what" class="muted"></span></span>
+            <label class="link"><span data-i18n="np.roms.add">Add games…</span><input id="np-rom-file" type="file" multiple hidden></label>
+          </div>
+          <ul id="np-rom-list" class="chips"></ul>
+        </div>
+        <div class="install-row">
+          <span id="rg-plan" class="muted"></span>
+          <button id="rg-add" class="primary" disabled data-i18n="np.add">Add to the list</button>
+        </div>
+        <p class="note credit" data-i18n="rg.credit">Retro-Go is by ducalex and its emulators' authors; NumPlay ported it to the NumWorks. It is fetched from NumPlay's site and linked here. Your games stay on this computer: bring only those you own.</p>
+      </div>
+
+      <button id="pk-open" class="numplay-link" type="button" aria-expanded="false" aria-controls="pk" hidden>
+        <span class="np-icon" aria-hidden="true">&#9654;</span>
+        <span><b data-i18n="pk.open">Build your NumPico</b><span class="muted" data-i18n="pk.open.sub">An app of its own that plays your PICO-8 carts.</span></span>
+        <span class="np-go" aria-hidden="true">&#8250;</span>
+      </button>
+      <div id="pk" class="np" hidden>
+        <div id="np-carts" class="np-own">
+          <div class="np-own-head">
+            <span><b>NumPico</b> <span class="muted" data-i18n="np.carts.what">Your PICO-8 carts (.p8 or .p8.png)</span></span>
+            <label class="link"><span data-i18n="np.carts.add">Add carts…</span><input id="np-cart-file" type="file" accept=".p8,.png,application/octet-stream,text/plain,image/png" multiple hidden></label>
+          </div>
+          <ul id="np-cart-list" class="chips"></ul>
+        </div>
+        <div class="np-look">
+          <label><span class="k" data-i18n="np.name">Name</span><input id="pk-name" maxlength="20" value="NumPico"></label>
+        </div>
+        <div class="install-row">
+          <span id="pk-plan" class="muted"></span>
+          <button id="pk-add" class="primary" disabled data-i18n="np.add">Add to the list</button>
+        </div>
+        <p class="note credit" data-i18n-rich="pk.credit">NumPico plays PICO-8 carts with <a href="https://github.com/benbaker76/femto8" target="_blank" rel="noopener">femto8</a> by Ben Baker, inside NumPlay's launcher (<a href="https://github.com/Mason363/NumPlay" target="_blank" rel="noopener">NumPlay</a>, GPL-3.0). Your carts stay on this computer: bring only those you own.</p>
       </div>
       <ul id="queue" class="apps queue"></ul>
 

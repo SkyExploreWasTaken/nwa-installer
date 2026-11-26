@@ -408,6 +408,16 @@ test('site config: a custom font is optional, validated, and only its own origin
   assert.ok(!applySiteFont(d2, null) && !applySiteFont(d2, { fontStylesheet: '', fontFamily: '' }));
 });
 
+test('numplay UI: NumPlay, Retro-Go and NumPico each have their own button, panel and Add; every id the script uses exists', () => {
+  const html = fs.readFileSync(path.join(repo, 'public', 'index.html'), 'utf8');
+  const ui = fs.readFileSync(path.join(repo, 'public', 'numplay-ui.js'), 'utf8');
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const used = [...ui.matchAll(/\$\('#([\w-]+)'\)/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(used)].filter((id) => !ids.has(id)), [], 'ids used by numplay-ui.js but not in index.html');
+  for (const p of ['np', 'rg', 'pk']) for (const id of [p + '-open', p, p + '-add', p + '-plan']) assert.ok(ids.has(id), id);
+  assert.ok(/'#rg-add'/.test(ui) && /buildRetroGo/.test(ui) && /ids: \[\], carts/.test(ui), 'Retro-Go and NumPico are built as apps of their own');
+});
+
 test('numplay queue: a new NumPlay goes on top and never replaces one already there', () => {
   const app = fs.readFileSync(path.join(repo, 'public', 'app.js'), 'utf8');
   assert.ok(!/st\.queue = st\.queue\.filter\(\(q\) => !q\.numplay\)/.test(app), 'no NumPlay is dropped from the queue');
