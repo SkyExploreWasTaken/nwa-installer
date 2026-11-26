@@ -68,8 +68,8 @@
   --free: var(--ctp-surface0);
   --bad: var(--ctp-red);
   --ok: var(--ok-text);
-  --shadow: 0 1px 2px var(--shadow-color), 0 6px 24px var(--shadow-color);
-  --radius: 16px;
+  --shadow: 0 1px 2px var(--shadow-color);
+  --radius: 10px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
   /* --font-custom: the font from config.json when there is one (lib/sitefont.js), else the system's */
   font-family: var(--font-custom, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif);
@@ -78,7 +78,6 @@
 html { background: var(--bg); }
 body {
   margin: 0; color: var(--text); line-height: 1.5; font-size: 15px;
-  background: radial-gradient(900px 420px at 15% -8%, var(--bg-glow), transparent 70%);
   min-height: 100vh;
 }
 code { font-family: var(--mono); font-size: .92em; background: var(--accent-soft); padding: 1px 5px; border-radius: 5px; }
@@ -87,11 +86,11 @@ code { font-family: var(--mono); font-size: .92em; background: var(--accent-soft
 /* header */
 .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
 .brand { display: flex; gap: 14px; align-items: center; }
-.logo { width: 48px; height: 48px; filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--accent) 35%, transparent)); }
+.logo { width: 40px; height: 40px; }
 .logo-body { fill: var(--accent); }
 .logo-screen { fill: var(--ctp-base); }
 .logo-key { fill: color-mix(in srgb, var(--ctp-base) 75%, transparent); }
-h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; line-height: 1.15; }
+h1 { margin: 0; font-size: 24px; letter-spacing: -.015em; line-height: 1.2; font-weight: 700; }
 .sub { margin: 2px 0 0; color: var(--muted); }
 .top-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .lang, .theme { font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); border: 1px solid var(--line); background: var(--card); padding: 4px 8px; border-radius: 999px; }
@@ -101,14 +100,14 @@ h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; line-height: 1.15; }
 main { display: grid; gap: 16px; }
 
 /* cards */
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .card-head > div { flex: 1; min-width: 0; }
 .card-head p { margin: 0; font-size: 14px; }
 h2 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
 .step {
-  width: 30px; height: 30px; flex: none; border-radius: 10px; display: grid; place-items: center;
-  font-weight: 700; font-size: 14px; color: var(--accent-text); background: var(--accent-soft);
+  width: 28px; height: 28px; flex: none; border-radius: 6px; display: grid; place-items: center;
+  font-weight: 700; font-size: 13px; color: var(--accent-text); background: var(--accent-soft);
 }
 #s-connect .card-head { margin-bottom: 0; }
 .muted { color: var(--muted); }
@@ -117,7 +116,7 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
 
 /* buttons */
 button, .button {
-  font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: 10px; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--line); background: var(--card); color: var(--text);
   display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
   transition: background .15s, border-color .15s, transform .05s, box-shadow .15s;
@@ -128,11 +127,10 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 button:focus-visible, .button:focus-within, .opt:focus-within .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary {
   background: var(--accent); border-color: var(--accent); color: var(--on-accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
-button.primary:hover:not(:disabled) { box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent); border-color: var(--accent); }
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ctp-text)); border-color: var(--accent); }
 button.primary.big { padding: 11px 28px; font-size: 15px; }
-button.danger { background: var(--ctp-red); border-color: var(--ctp-red); color: var(--on-accent); box-shadow: 0 2px 8px color-mix(in srgb, var(--ctp-red) 35%, transparent); }
+button.danger { background: var(--ctp-red); border-color: var(--ctp-red); color: var(--on-accent); }
 button.ghost, .button.ghost { background: var(--card-2); }
 button svg, .button svg, .drop svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -163,11 +161,11 @@ button svg, .button svg, .drop svg { width: 17px; height: 17px; fill: none; stro
 
 /* drop zone */
 .drop {
-  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 26px; border-radius: 14px;
-  border: 2px dashed var(--line); background: var(--card-2); color: var(--muted); transition: all .15s;
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 22px; border-radius: 10px;
+  border: 1px dashed var(--ctp-surface2); background: var(--card-2); color: var(--muted); transition: border-color .15s, background .15s;
 }
-.drop svg { width: 24px; height: 24px; }
-.drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); transform: scale(1.01); }
+.drop svg { width: 22px; height: 22px; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
 
 /* options as switches */
 .options { display: grid; gap: 4px; margin: 18px 0; }
@@ -220,12 +218,16 @@ button svg, .button svg, .drop svg { width: 17px; height: 17px; fill: none; stro
 
 /* dialog */
 dialog {
-  border: 1px solid var(--line); border-radius: 18px; background: var(--card); color: var(--text);
-  max-width: 440px; padding: 26px; box-shadow: 0 20px 60px var(--shadow-color);
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text);
+  max-width: 440px; padding: 22px; box-shadow: 0 8px 24px var(--shadow-color);
 }
 dialog[open] { animation: pop .18s ease-out; }
 @keyframes pop { from { transform: scale(.96); opacity: 0; } }
-dialog::backdrop { background: var(--backdrop); backdrop-filter: blur(3px); }
+dialog::backdrop { background: var(--backdrop); }
+/* inputs in dialogs look like the rest of the site's */
+dialog input, dialog select, dialog textarea { font: inherit; font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); width: 100%; }
+dialog input:focus-visible, dialog select:focus-visible, dialog textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 dialog h2 { font-size: 19px; }
 dialog p { color: var(--muted); font-size: 14px; }
 .dlg-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 20px; color: var(--bad-text); background: color-mix(in srgb, var(--ctp-red) 14%, transparent); margin-bottom: 12px; }
