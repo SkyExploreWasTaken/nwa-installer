@@ -367,7 +367,11 @@ h1::before { content: "> "; color: var(--accent-text); }
 .sub { font-size: 12.5px; }
 .logo { width: 28px; height: 28px; }
 .pills li, .lang, .theme { border-radius: 2px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; }
-.lang, .theme { padding: 4px 8px; }
+/* the pickers look as tall as the chips beside them (25px) but keep a 45px tap area: a transparent 10px border above and
+   below is the hit area, the visible box is the padding box inside it, with its 1px outline drawn as an inset shadow */
+.lang, .theme { padding: 0 8px; height: 45px; min-height: 45px; margin-block: -10px; border: 0; border-block: 10px solid transparent;
+  background-clip: padding-box; box-shadow: inset 0 0 0 1px var(--line); line-height: 1.5; }
+.lang:hover, .theme:hover { box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* panels */
 .card { border-radius: 2px; box-shadow: none; padding: 14px 16px; border-left: 3px solid var(--ctp-surface1); transition: border-color .15s; }
