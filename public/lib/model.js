@@ -30,11 +30,15 @@ export function detectModel({ usbVersion = null, productName = '', serialNumber 
   const bcd = Array.isArray(usbVersion) && usbVersion.length === 3 ? usbVersion.join('.') : null;
   const trusted = PRODUCTS.test(productName);
   let model = trusted && bcd ? BY_BCD[bcd] || null : null;
+  const internal = size(layouts, 0x08000000, 0x080fffff), external = size(layouts, 0x90000000, 0x9fffffff);
+  const n0120Ram = size(layouts, 0x24000000, 0x24ffffff) > 0;
+  // Chrome for Android reports some N0120s as 1.1.4 (desktop: 1.2.0). A 1.1.x version not in the list, from a trusted
+  // name, is taken for an N0120 only on a clear match of its memories: RAM at 0x24000000 and external flash, no
+  // internal flash area. (N0110/N0115 can't be told apart by their memories: they stay unknown.)
+  if (!model && trusted && bcd && bcd.startsWith('1.1.') && !Object.hasOwn(BY_BCD, bcd) && n0120Ram && external && !internal) model = 'N0120';
   if (model === 'N0120' && serialNumber === PORTUGAL_PROTOTYPE_SERIAL) model = 'N0120_PORTUGAL_PROTOTYPE_20210930';
   if (model) return { model };
-  const internal = size(layouts, 0x08000000, 0x080fffff), external = size(layouts, 0x90000000, 0x9fffffff);
   if (internal >= 0x100000 && !external) return { refuse: 'calc.n0100' };
-  const n0120Ram = size(layouts, 0x24000000, 0x24ffffff) > 0;
   if (trusted && bcd === '1.0.0' && external && !n0120Ram) return { limited: 'outdated' };
   if (!trusted || bcd === '1.0.0' || !bcd) return { refuse: 'calc.updateFirst' };
   return { refuse: 'calc.unknownModel', bcd };

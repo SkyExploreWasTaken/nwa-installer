@@ -301,6 +301,16 @@ test('model: never a guess: the N0100 refused, an outdated N0110/N0115 asked, th
   assert.deepEqual(detect(usbDev(0x0130), MEM.N0120), { refuse: 'calc.unknownModel', bcd: '1.3.0' });
 });
 
+test('model: an unlisted version (Android reports an N0120 as 1.1.4) falls back to the memories, clear match only', () => {
+  assert.deepEqual(detect(usbDev(0x0114), MEM.N0120), { model: 'N0120' }, '1.1.4 + N0120 memories');
+  assert.deepEqual(detect(usbDev(0x0114, 'NumWorks Calculator', 'EAAbABVROTUxNDM4'), MEM.N0120), { model: 'N0120_PORTUGAL_PROTOTYPE_20210930' });
+  assert.deepEqual(detect(usbDev(0x0114), MEM.N0110), { refuse: 'calc.unknownModel', bcd: '1.1.4' }, 'N0110/N0115 memories: ambiguous, unknown');
+  assert.deepEqual(detect(usbDev(0x0114), []), { refuse: 'calc.unknownModel', bcd: '1.1.4' }, 'no layout');
+  assert.deepEqual(detect(usbDev(0x0114), [{ name: 'SRAM', segments: [{ start: 0x24000000, end: 0x2403f000 }] }]), { refuse: 'calc.unknownModel', bcd: '1.1.4' }, 'RAM only: not clear');
+  assert.deepEqual(detect(usbDev(0x0114, 'Upsilon Calculator'), MEM.N0120), { refuse: 'calc.updateFirst' }, 'a fork\'s name is not trusted');
+  assert.deepEqual(detect(usbDev(0x0130), MEM.N0120), { refuse: 'calc.unknownModel', bcd: '1.3.0' }, '1.3.0 stays unknown even with N0120 memories');
+});
+
 test('model: readInfo refuses what it can\'t work with, with its own code; outdated firmware: limited', async () => {
   const { readInfo } = await import('../public/lib/calc.js');
   const dfu = (dev, layouts) => ({ device: dev, layouts, read: async (a, n) => new Uint8Array(n).fill(0xff) });
