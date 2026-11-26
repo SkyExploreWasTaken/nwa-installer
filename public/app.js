@@ -13,7 +13,7 @@ import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
-import { isAndroid } from './lib/model.js';
+import { isAndroid, PICKABLE } from './lib/model.js';
 import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, refusalOf } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
@@ -119,29 +119,26 @@ function openDialog(d) {
   d.close = (rv) => { if (rv !== undefined) d.returnValue = rv; d.removeAttribute('open'); d.dispatchEvent(new Event('close')); };
   d.addEventListener('submit', (e) => { e.preventDefault(); d.close(e.submitter?.value ?? ''); }, { once: true });
 }
-// The model picker (<dialog id="which-model">): one button per model the memories allow, and Cancel. -> the model, or null.
+// The model picker (<dialog id="which-model">): the known models as a list (name and a short description), the ones the
+// calculator's memories contradict greyed out, and "My calculator is not here". -> the model, or null.
 // (its id isn't "pick": that's the .nwa file input's, and the first match wins)
-function askModel(models, bcd) {
+function askModel(allowed, bcd) {
   return new Promise((done) => {
     const d = $('#which-model');
-    const box = $('#pick-actions');
-    const cancel = box.querySelector('[value=cancel]');
-    for (const b of box.querySelectorAll('[data-model]')) b.remove();
-    for (const m of models) {
-      const b = el('button', 'primary', t('pick.use', { model: m }));
+    $('#pick-list').replaceChildren(...PICKABLE.map((m) => {
+      const li = el('li');
+      const b = el('button', 'model-row');
+      b.type = 'submit';
       b.value = m;
-      b.dataset.model = m;
-      box.append(b);
-    }
-    box.append(cancel);
+      b.disabled = !allowed.includes(m);
+      b.append(el('b', '', m), el('span', 'muted', t('pick.model.' + m)));
+      if (b.disabled) b.append(el('span', 'model-no', t('pick.mismatch')));
+      li.append(b);
+      return li;
+    }));
     $('#pick-text').textContent = t(ANDROID ? 'pick.textAndroid' : 'pick.text', { bcd });
-    $('#pick-version-row').hidden = !ANDROID;
-    const v = $('#pick-version');
-    v.value = '';
-    v.required = ANDROID;
     d.returnValue = '';
-    // (a model button with no version typed on Android does nothing: the form refuses an empty required field)
-    d.addEventListener('close', () => done(models.includes(d.returnValue) ? { model: d.returnValue, version: v.value.trim() } : null), { once: true });
+    d.addEventListener('close', () => done(allowed.includes(d.returnValue) ? d.returnValue : null), { once: true });
     openDialog(d);
   });
 }
@@ -155,14 +152,14 @@ async function connect(dev) {
     await st.dfu.open();
     if (MOCK || SIM) dev = { productName: st.dfu.productName };
     status(T('connect.reading'));
-    // On Android no auto-detection (its USB version can't be trusted: an N0120 shows as 1.1.4): the user picks the model
-    // and the software version. Elsewhere only a version this page doesn't know asks. Every pick is checked against
-    // the calculator's memories (lib/model.js) and, on Android, the version against the calculator's own.
+    // On Android no auto-detection (its USB version can't be trusted: an N0120 shows as 1.1.4): the user picks the model.
+    // Elsewhere only a version this page doesn't know asks. Every pick is checked against the calculator's memories
+    // (lib/model.js). The software version is never asked: it's read from the calculator itself, as on a computer.
     try { st.info = await readInfo(st.dfu, { manual: ANDROID }); } catch (e) {
       if (e.code !== 'calc.unknownModel' || !e.pick?.length) throw e;
-      const c = await askModel(e.pick, e.params.bcd);
-      if (!c) throw e;
-      st.info = await readInfo(st.dfu, { chosenModel: c.model, manual: ANDROID, expectVersion: ANDROID ? c.version : null });
+      const model = await askModel(e.pick, e.params.bcd);
+      if (!model) throw e;
+      st.info = await readInfo(st.dfu, { chosenModel: model, manual: ANDROID });
     }
   } catch (e) {
     // let go of the calculator, so a new try (or another program) can have it

@@ -110,7 +110,7 @@ export function pickFlasher({ simulate, real, simulated }) {
 export function refusalOf(code) {
   if (typeof code !== 'string') return null;
   if (code === 'calc.n0100') return { title: 'warn.n0100.title' };
-  if (/^calc\.(tooOld|updateFirst|unknownModel|pickMismatch|pickVersionMismatch|unofficial\.\w+)$/.test(code)) return { title: 'refuse.title' };
+  if (/^calc\.(tooOld|updateFirst|unknownModel|pickMismatch|unofficial\.\w+)$/.test(code)) return { title: 'refuse.title' };
   return null;
 }
 

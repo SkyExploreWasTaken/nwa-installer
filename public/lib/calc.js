@@ -2,7 +2,7 @@
 // What's on a NumWorks calculator (Epsilon 16 and later, N0110/N0115/N0120): its firmware headers and the
 // external apps in its app area. All of it read over DFU, nothing written.
 import { InstallerError } from './errors.js';
-import { detectModel, usbVersionOf, pickableModels, versionMatches } from './model.js';
+import { detectModel, usbVersionOf, pickableModels } from './model.js';
 import { checkOfficial } from './official.js';
 
 // refuses a calculator that doesn't run official software (official.js), with what was found as the code
@@ -27,9 +27,9 @@ const cstr = (b, o, max = 64) => {
 export const hex = (n) => '0x' + (n >>> 0).toString(16).padStart(8, '0');
 
 // chosenModel: the model the user picked for a calculator whose USB version isn't known (model.js), checked against its memories
-// manual: the model is always picked (Android, whose USB version can't be trusted); expectVersion: the software version
-// the user read in Settings > About, which must match what the calculator says
-export async function readInfo(dfu, { chosenModel = null, manual = false, expectVersion = null } = {}) {
+// manual: the model is always picked (Android, whose USB version can't be trusted). The software version is never asked:
+// it's read from the calculator's own kernel header below, as on a computer.
+export async function readInfo(dfu, { chosenModel = null, manual = false } = {}) {
   const productName = dfu.device?.productName || dfu.productName || '';
   const flashStrings = dfu.layouts.map((l) => l.raw).filter(Boolean);
   if (productName === 'Upsilon Bootloader') unofficial(checkOfficial({ productName }));
@@ -64,9 +64,6 @@ export async function readInfo(dfu, { chosenModel = null, manual = false, expect
   if (!is(k, 0, MAGIC.kernel)) throw new InstallerError('calc.noKernel', {}, 'The kernel header was not where it should be');
   info.version = cstr(k, 4, 8);
   info.patch = cstr(k, 12, 8);
-  if (expectVersion != null && !versionMatches(expectVersion, info.version)) {
-    throw new InstallerError('calc.pickVersionMismatch', { entered: expectVersion, version: info.version }, `The version you entered (${expectVersion}) doesn't match the calculator's (${info.version}). Check Settings > About on the calculator.`);
-  }
 
   const u = await dfu.read(info.userlandHeader, 48);
   if (!is(u, 0, MAGIC.userland)) throw new InstallerError('calc.noUserland', {}, 'The userland header was not where it should be');

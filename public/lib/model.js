@@ -57,13 +57,6 @@ export function detectModel({ usbVersion = null, productName = '', serialNumber 
 // model is always picked by the user. nav: the browser's navigator (a parameter, for tests).
 export const isAndroid = (nav) => !!nav && (nav.userAgentData?.platform === 'Android' || /Android/i.test(nav.userAgent || ''));
 
-// does the software version the user read in Settings > About match the one the calculator says? "24.4" matches 24.4.0.
-export function versionMatches(entered, actual) {
-  const a = String(entered || '').trim().replace(/^v/i, '').split('.');
-  const b = String(actual || '').trim().split('.');
-  return a.length > 0 && a.every((x) => /^\d+$/.test(x)) && a.length <= b.length && a.every((x, i) => Number(x) === Number(b[i]));
-}
-
 // the models the user may pick when the USB version isn't known: only N0110, N0115, N0120, and only those whose
 // memories (DFU layout) fit: external flash and no internal flash area for all of them; RAM at 0x24000000 for the
 // N0120, at 0x20000000 for the N0110/N0115 (which their memories can't tell apart).

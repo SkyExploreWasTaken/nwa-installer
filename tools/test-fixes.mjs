@@ -312,7 +312,7 @@ test('model: an unlisted version (Android reports an N0120 as 1.1.4) falls back 
 });
 
 test('model: manual pick (unknown version, and always on Android), checked against the memories', async () => {
-  const { isAndroid, versionMatches, pickableModels } = await import('../public/lib/model.js');
+  const { isAndroid, pickableModels } = await import('../public/lib/model.js');
   const d = (bcd, layouts, chosen, manual, name, serial) => detectModel({ usbVersion: usbVersionOf(usbDev(bcd, name, serial)), productName: name || 'NumWorks Calculator', serialNumber: serial || '', layouts, chosen, manual });
   // valid picks matching the memories
   assert.deepEqual(d(0x0130, MEM.N0120, 'N0120'), { model: 'N0120', picked: true });
@@ -340,8 +340,11 @@ test('model: manual pick (unknown version, and always on Android), checked again
   assert.ok(isAndroid({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel) Chrome/130' }));
   assert.ok(isAndroid({ userAgentData: { platform: 'Android' }, userAgent: '' }));
   assert.ok(!isAndroid({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/130' }));
-  assert.ok(versionMatches('24.4.0', '24.4.0') && versionMatches('v24.4', '24.4.0') && versionMatches('24', '24.4.0'));
-  assert.ok(!versionMatches('24.5.0', '24.4.0') && !versionMatches('', '24.4.0') && !versionMatches('abc', '24.4.0') && !versionMatches('24.4.0.1', '24.4.0'));
+  // the page lists the known models, offers "not here", and never asks for a version (it's read from the calculator)
+  const html = fs.readFileSync(path.join(repo, 'public', 'index.html'), 'utf8');
+  const dlg = html.match(/<dialog id="which-model"[\s\S]*?<\/dialog>/)[0];
+  assert.ok(/id="pick-list"/.test(dlg) && /value="none"/.test(dlg) && !/<input/.test(dlg));
+  assert.deepEqual((await import('../public/lib/model.js')).PICKABLE, ['N0110', 'N0115', 'N0120']);
 });
 
 test('page: ids are unique, every dialog the page opens is a <dialog>, and openDialog works without showModal', () => {
