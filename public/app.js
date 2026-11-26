@@ -13,6 +13,7 @@ import { parseDfuFile, writableElements } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
+import { isAndroid } from './lib/model.js';
 import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, refusalOf } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
@@ -109,6 +110,33 @@ $('#connect').addEventListener('click', () => job('connect', async () => {
   await connect(dev);
 }));
 
+const ANDROID = isAndroid(navigator);
+// The model picker (<dialog id="pick">): one button per model the memories allow, and Cancel. -> the model, or null.
+function askModel(models, bcd) {
+  return new Promise((done) => {
+    const d = $('#pick');
+    const box = $('#pick-actions');
+    const cancel = box.querySelector('[value=cancel]');
+    for (const b of box.querySelectorAll('[data-model]')) b.remove();
+    for (const m of models) {
+      const b = el('button', 'primary', t('pick.use', { model: m }));
+      b.value = m;
+      b.dataset.model = m;
+      box.append(b);
+    }
+    box.append(cancel);
+    $('#pick-text').textContent = t(ANDROID ? 'pick.textAndroid' : 'pick.text', { bcd });
+    $('#pick-version-row').hidden = !ANDROID;
+    const v = $('#pick-version');
+    v.value = '';
+    v.required = ANDROID;
+    d.returnValue = '';
+    // (a model button with no version typed on Android does nothing: the form refuses an empty required field)
+    d.addEventListener('close', () => done(models.includes(d.returnValue) ? { model: d.returnValue, version: v.value.trim() } : null), { once: true });
+    d.showModal();
+  });
+}
+
 async function connect(dev) {
   if (st.dfu) await st.dfu.close();
   st.dev = dev;
@@ -118,7 +146,15 @@ async function connect(dev) {
     await st.dfu.open();
     if (MOCK || SIM) dev = { productName: st.dfu.productName };
     status(T('connect.reading'));
-    st.info = await readInfo(st.dfu);
+    // On Android no auto-detection (its USB version can't be trusted: an N0120 shows as 1.1.4): the user picks the model
+    // and the software version. Elsewhere only a version this page doesn't know asks. Every pick is checked against
+    // the calculator's memories (lib/model.js) and, on Android, the version against the calculator's own.
+    try { st.info = await readInfo(st.dfu, { manual: ANDROID }); } catch (e) {
+      if (e.code !== 'calc.unknownModel' || !e.pick?.length) throw e;
+      const c = await askModel(e.pick, e.params.bcd);
+      if (!c) throw e;
+      st.info = await readInfo(st.dfu, { chosenModel: c.model, manual: ANDROID, expectVersion: ANDROID ? c.version : null });
+    }
   } catch (e) {
     // let go of the calculator, so a new try (or another program) can have it
     await st.dfu.close().catch(() => {});

@@ -311,6 +311,49 @@ test('model: an unlisted version (Android reports an N0120 as 1.1.4) falls back 
   assert.deepEqual(detect(usbDev(0x0130), MEM.N0120), { refuse: 'calc.unknownModel', bcd: '1.3.0' }, '1.3.0 stays unknown even with N0120 memories');
 });
 
+test('model: manual pick (unknown version, and always on Android), checked against the memories', async () => {
+  const { isAndroid, versionMatches, pickableModels } = await import('../public/lib/model.js');
+  const d = (bcd, layouts, chosen, manual, name, serial) => detectModel({ usbVersion: usbVersionOf(usbDev(bcd, name, serial)), productName: name || 'NumWorks Calculator', serialNumber: serial || '', layouts, chosen, manual });
+  // valid picks matching the memories
+  assert.deepEqual(d(0x0130, MEM.N0120, 'N0120'), { model: 'N0120', picked: true });
+  for (const m of ['N0110', 'N0115']) assert.deepEqual(d(0x0130, MEM.N0110, m), { model: m, picked: true }, m);
+  // contradicting the memories: refused
+  assert.deepEqual(d(0x0130, MEM.N0120, 'N0110'), { refuse: 'calc.pickMismatch', bcd: '1.3.0', model: 'N0110' });
+  assert.deepEqual(d(0x0130, MEM.N0110, 'N0120'), { refuse: 'calc.pickMismatch', bcd: '1.3.0', model: 'N0120' });
+  assert.deepEqual(d(0x0130, [], 'N0120'), { refuse: 'calc.pickMismatch', bcd: '1.3.0', model: 'N0120' }, 'no layout');
+  // unsupported picks refused
+  for (const m of ['N0100', 'N0200', 'N9999', '']) assert.equal(d(0x0130, MEM.N0120, m).refuse, 'calc.unknownModel', 'pick ' + m);
+  // not asked at all: an untrusted name, or a version the page knows (without manual)
+  assert.deepEqual(pickableModels({ productName: 'Upsilon Calculator', layouts: MEM.N0120 }), []);
+  assert.deepEqual(pickableModels({ productName: 'NumWorks Calculator', layouts: MEM.N0120 }), ['N0120']);
+  assert.deepEqual(pickableModels({ productName: 'NumWorks Calculator', layouts: MEM.N0110 }), ['N0110', 'N0115']);
+  assert.deepEqual(pickableModels({ productName: 'NumWorks Calculator', layouts: MEM.N0100 }), []);
+  assert.deepEqual(d(0x0110, MEM.N0110, 'N0120'), { model: 'N0110' }, 'a known version ignores a pick');
+  assert.equal(d(0x0130, MEM.N0120, 'N0120', false, 'Upsilon Calculator').refuse, 'calc.updateFirst', 'untrusted name refused');
+  // manual (Android): the USB version is never trusted, even a listed one
+  assert.deepEqual(d(0x0120, MEM.N0120, null, true), { refuse: 'calc.unknownModel', bcd: '1.2.0' });
+  assert.deepEqual(d(0x0114, MEM.N0120, null, true), { refuse: 'calc.unknownModel', bcd: '1.1.4' }, 'no silent N0120 either');
+  assert.deepEqual(d(0x0114, MEM.N0120, 'N0120', true), { model: 'N0120', picked: true });
+  assert.equal(d(0x0120, MEM.N0120, 'N0110', true).refuse, 'calc.pickMismatch', 'the memories still win on Android');
+  assert.deepEqual(d(0x0100, MEM.N0110, null, true), { limited: 'outdated' }, '1.0.0 keeps its own flow');
+  // Android and version helpers
+  assert.ok(isAndroid({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel) Chrome/130' }));
+  assert.ok(isAndroid({ userAgentData: { platform: 'Android' }, userAgent: '' }));
+  assert.ok(!isAndroid({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/130' }));
+  assert.ok(versionMatches('24.4.0', '24.4.0') && versionMatches('v24.4', '24.4.0') && versionMatches('24', '24.4.0'));
+  assert.ok(!versionMatches('24.5.0', '24.4.0') && !versionMatches('', '24.4.0') && !versionMatches('abc', '24.4.0') && !versionMatches('24.4.0.1', '24.4.0'));
+});
+
+test('model: readInfo with a pick: pickMismatch, and the version entered must be the calculator\'s', async () => {
+  const { readInfo } = await import('../public/lib/calc.js');
+  const dfu = (dev, layouts) => ({ device: dev, layouts, read: async (a, n) => new Uint8Array(n).fill(0xff) });
+  await assert.rejects(readInfo(dfu(usbDev(0x0114), MEM.N0120), {}), (e) => e.code === 'calc.tooOld', '1.1.4 + N0120 memories: detected, then reading goes on (no slot info here)');
+  await assert.rejects(readInfo(dfu(usbDev(0x0114), MEM.N0120), { chosenModel: 'N0110', manual: true }), (e) => e.code === 'calc.pickMismatch');
+  await assert.rejects(readInfo(dfu(usbDev(0x0130), MEM.N0120), {}), (e) => e.code === 'calc.unknownModel' && e.pick.join() === 'N0120');
+  await assert.rejects(readInfo(dfu(usbDev(0x0130), MEM.N0110), {}), (e) => e.code === 'calc.unknownModel' && e.pick.join() === 'N0110,N0115');
+  await assert.rejects(readInfo(dfu(usbDev(0x0130, 'Upsilon Calculator'), MEM.N0110), {}), (e) => e.code === 'calc.updateFirst');
+});
+
 test('model: readInfo refuses what it can\'t work with, with its own code; outdated firmware: limited', async () => {
   const { readInfo } = await import('../public/lib/calc.js');
   const dfu = (dev, layouts) => ({ device: dev, layouts, read: async (a, n) => new Uint8Array(n).fill(0xff) });

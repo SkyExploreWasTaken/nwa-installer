@@ -242,6 +242,20 @@
   </form>
 </dialog>
 
+<!-- which model, when the USB version isn't known (app.js askModel): buttons filled in by the page -->
+<dialog id="pick" aria-labelledby="pick-title" aria-describedby="pick-text">
+  <form method="dialog">
+    <div class="dlg-icon" aria-hidden="true">?</div>
+    <h2 id="pick-title" data-i18n="pick.title">Which calculator is this?</h2>
+    <p id="pick-text"></p>
+    <label id="pick-version-row" hidden><span data-i18n="pick.version">Software version (Settings &gt; About)</span>
+      <input id="pick-version" inputmode="decimal" autocomplete="off" placeholder="24.4.0"></label>
+    <div class="dlg-actions" id="pick-actions">
+      <button value="cancel" formnovalidate class="ghost" data-i18n="dlg.cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- the pop-up for a refused calculator, and the warning after Skip update (app.js showNotice) -->
 <dialog id="notice" class="notice" aria-modal="true" aria-labelledby="notice-title" aria-describedby="notice-text">
   <form method="dialog">

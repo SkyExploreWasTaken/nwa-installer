@@ -2,7 +2,7 @@
 // What's on a NumWorks calculator (Epsilon 16 and later, N0110/N0115/N0120): its firmware headers and the
 // external apps in its app area. All of it read over DFU, nothing written.
 import { InstallerError } from './errors.js';
-import { detectModel, usbVersionOf } from './model.js';
+import { detectModel, usbVersionOf, pickableModels, versionMatches } from './model.js';
 import { checkOfficial } from './official.js';
 
 // refuses a calculator that doesn't run official software (official.js), with what was found as the code
@@ -26,20 +26,29 @@ const cstr = (b, o, max = 64) => {
 };
 export const hex = (n) => '0x' + (n >>> 0).toString(16).padStart(8, '0');
 
-export async function readInfo(dfu) {
+// chosenModel: the model the user picked for a calculator whose USB version isn't known (model.js), checked against its memories
+// manual: the model is always picked (Android, whose USB version can't be trusted); expectVersion: the software version
+// the user read in Settings > About, which must match what the calculator says
+export async function readInfo(dfu, { chosenModel = null, manual = false, expectVersion = null } = {}) {
   const productName = dfu.device?.productName || dfu.productName || '';
   const flashStrings = dfu.layouts.map((l) => l.raw).filter(Boolean);
   if (productName === 'Upsilon Bootloader') unofficial(checkOfficial({ productName }));
   // the model, from the USB descriptor (model.js); a calculator this page can't work with is refused, saying why
-  const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName, serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts });
+  const m = detectModel({ usbVersion: usbVersionOf(dfu.device), productName, serialNumber: dfu.device?.serialNumber || '', layouts: dfu.layouts, chosen: chosenModel, manual });
   // the N0100: refused (no external flash, so no app area; no bootloader; NumWorks stopped updating it)
   if (m.refuse === 'calc.n0100') throw new InstallerError('calc.n0100', {}, 'The N0100 is too old for Nwa Toolkit: it has no storage for .nwa apps, and NumWorks has stopped updating it, so Nwa Toolkit cannot do anything with it.');
   // an N0110/N0115 on outdated firmware: nothing read (its memory isn't laid out as below), and the page only offers
   // what gate.js allows: { model: null, limited: 'outdated' }
   if (m.limited === 'outdated') return { model: null, limited: 'outdated', serial: dfu.device?.serialNumber || null };
   if (m.refuse === 'calc.updateFirst') throw new InstallerError('calc.updateFirst', {}, 'This calculator runs old or unofficial software that does not say which model it is. Update it first on https://my.numworks.com/devices/upgrade, then connect again.');
-  if (m.refuse) throw new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by Nwa Toolkit.');
-  const info = { model: m.model, serial: dfu.device?.serialNumber || null, ramStart: 0x20000000 };
+  if (m.refuse === 'calc.pickMismatch') throw new InstallerError('calc.pickMismatch', { bcd: m.bcd, model: m.model }, `The picked model ${m.model} doesn't match this calculator's memories (USB version ${m.bcd}). Check the label on the back of the calculator.`);
+  if (m.refuse) {
+    const e = new InstallerError('calc.unknownModel', { bcd: m.bcd }, 'This calculator model (USB version ' + m.bcd + ') is not supported by Nwa Toolkit.');
+    // the models the user may pick instead (the page asks), when the memories fit some
+    e.pick = pickableModels({ productName, layouts: dfu.layouts });
+    throw e;
+  }
+  const info = { model: m.model, picked: !!m.picked, serial: dfu.device?.serialNumber || null, ramStart: 0x20000000 };
   // the N0120 has its RAM at 0x24000000: its DFU memories say so
   for (const l of dfu.layouts) for (const s of l.segments) if (s.start === 0x24000000) info.ramStart = 0x24000000;
 
@@ -55,6 +64,9 @@ export async function readInfo(dfu) {
   if (!is(k, 0, MAGIC.kernel)) throw new InstallerError('calc.noKernel', {}, 'The kernel header was not where it should be');
   info.version = cstr(k, 4, 8);
   info.patch = cstr(k, 12, 8);
+  if (expectVersion != null && !versionMatches(expectVersion, info.version)) {
+    throw new InstallerError('calc.pickVersionMismatch', { entered: expectVersion, version: info.version }, `The version you entered (${expectVersion}) doesn't match the calculator's (${info.version}). Check Settings > About on the calculator.`);
+  }
 
   const u = await dfu.read(info.userlandHeader, 48);
   if (!is(u, 0, MAGIC.userland)) throw new InstallerError('calc.noUserland', {}, 'The userland header was not where it should be');
