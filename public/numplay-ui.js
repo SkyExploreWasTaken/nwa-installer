@@ -5,14 +5,26 @@
 import { NumPlayKit, VARIANTS, SECRETS, MAX_GAMES, MAX_CARTS } from './lib/numplay.js';
 import { SYSTEMS, MEGA_DRIVE, extensions } from './lib/roms.js';
 import { t, errText, size, getLang } from './i18n/index.js';
+import { VIEWS, loadView, saveView } from './lib/viewpref.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const LANG_NAMES = { en: 'English', fr: 'Français', zh: '中文' };
+const storage = () => { try { return window.localStorage; } catch { return null; } };  // (blocked storage throws on access)
 
 export function initNumPlay({ log, free, add }) {
   const st = { kit: null, loading: null, picked: [], extras: [], roms: [], carts: [], lang: 'en', variant: 'NumPlay', busy: false, status: null };
   const tiles = new Map();  // id -> its button
+
+  // list or grid, remembered; the list is the default
+  function drawView(view) {
+    $('#np-grid').dataset.view = view;
+    for (const b of document.querySelectorAll('#np-view button')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
+  }
+  drawView(loadView(storage() || {}));
+  for (const b of document.querySelectorAll('#np-view button')) {
+    b.addEventListener('click', () => { if (VIEWS.includes(b.dataset.view)) { saveView(storage() || {}, b.dataset.view); drawView(b.dataset.view); } });
+  }
 
   $('#np-open').addEventListener('click', async () => {
     const open = $('#np').hidden;

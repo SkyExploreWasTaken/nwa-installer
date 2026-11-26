@@ -255,11 +255,11 @@ drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.ad
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
 
-async function addFiles(list, extra = {}) {
+async function addFiles(list, extra = {}, { top = false } = {}) {
   for (const f of list) {
     if (!/\.nwa$/i.test(f.name)) { log(f.name + ': not a .nwa file, skipped'); continue; }
     const item = { file: f.name, name: f.name.replace(/\.nwa$/i, ''), nwa: new Uint8Array(await f.arrayBuffer()), size: null, ...extra };
-    st.queue.push(item);
+    if (top) st.queue.unshift(item); else st.queue.push(item);
     render();
     inspect(item);
   }
@@ -763,13 +763,12 @@ const numplay = initNumPlay({
   // the space a NumPlay can take: what the apps to install leave free (with the options as set), its own part aside
   free: () => {
     if (!st.info || st.info.limited) return null;
-    const L = layout(), others = st.queue.filter((q) => !q.numplay).reduce((n, q) => n + (q.size ? sectors(q.size) : 0), 0);
+    const L = layout(), others = st.queue.reduce((n, q) => n + (q.size ? sectors(q.size) : 0), 0);
     return L.total - L.kept - others;
   },
-  // put what it made in the apps to install, in place of the NumPlay made before
+  // put what it made on top of the apps to install; one made before stays (take it out if you don't want it)
   add: async (bytes, name) => {
-    st.queue = st.queue.filter((q) => !q.numplay);
-    await addFiles([new File([bytes], name + '.nwa')], { numplay: true });
+    await addFiles([new File([bytes], name + '.nwa')], { numplay: true }, { top: true });
   },
 });
 

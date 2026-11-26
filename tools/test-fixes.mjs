@@ -369,6 +369,25 @@ test('page: ids are unique, every dialog the page opens is a <dialog>, and openD
   assert.equal(shown, 1, 'showModal when there is one');
 });
 
+test('numplay view: list by default, remembered, and blocked or broken storage never throws', async () => {
+  const { loadView, saveView } = await import('../public/lib/viewpref.js');
+  const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v) }; };
+  const s = mem();
+  assert.equal(loadView(s), 'list');
+  assert.ok(saveView(s, 'grid')); assert.equal(loadView(s), 'grid');
+  assert.ok(!saveView(s, 'cards')); assert.equal(loadView(s), 'grid', 'an unknown view is not kept');
+  s.setItem('nwa-np-view', 'junk'); assert.equal(loadView(s), 'list');
+  const broken = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  assert.equal(loadView(broken), 'list'); assert.equal(saveView(broken, 'grid'), false);
+  assert.equal(loadView({}), 'list', 'no storage at all');
+});
+
+test('numplay queue: a new NumPlay goes on top and never replaces one already there', () => {
+  const app = fs.readFileSync(path.join(repo, 'public', 'app.js'), 'utf8');
+  assert.ok(!/st\.queue = st\.queue\.filter\(\(q\) => !q\.numplay\)/.test(app), 'no NumPlay is dropped from the queue');
+  assert.ok(/if \(top\) st\.queue\.unshift\(item\)/.test(app) && /\{ top: true \}/.test(app));
+});
+
 test('model: readInfo with a pick: pickMismatch, and the version entered must be the calculator\'s', async () => {
   const { readInfo } = await import('../public/lib/calc.js');
   const dfu = (dev, layouts) => ({ device: dev, layouts, read: async (a, n) => new Uint8Array(n).fill(0xff) });

@@ -267,6 +267,16 @@ dialog p { color: var(--muted); font-size: 14px; }
 .np-tools input { flex: 1; min-width: 180px; }
 .np-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; max-height: 420px; overflow: auto;
   padding: 2px; margin-top: 10px; }
+/* list view (the default): one row per game; grid keeps the tiles */
+.seg { display: inline-flex; }
+.seg button { padding: 8px 12px; border-radius: 0; min-height: 44px; }
+.seg button:first-child { border-radius: 10px 0 0 10px; }
+.seg button:last-child { border-radius: 0 10px 10px 0; margin-left: -1px; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); position: relative; }
+.np-grid[data-view="list"] { grid-template-columns: 1fr; gap: 4px; }
+.np-grid[data-view="list"] .tile { grid-template-columns: 40px 1fr auto auto; justify-items: start; align-items: center; gap: 12px; padding: 6px 12px 6px 8px; text-align: left; }
+.np-grid[data-view="list"] .tile img, .np-grid[data-view="list"] .tile .ph { width: 40px; height: 40px; }
+.np-grid[data-view="list"] .tile[aria-pressed="true"]::after { position: static; justify-self: end; grid-column: 4; }
 .tile { position: relative; display: grid; justify-items: center; gap: 4px; padding: 10px 6px 8px; border-radius: 12px;
   border: 1px solid var(--line); background: var(--card); font-weight: 500; white-space: normal; text-align: center; }
 .tile img, .tile .ph { width: 48px; height: 48px; border-radius: 11px; object-fit: cover; }
