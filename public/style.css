@@ -431,3 +431,20 @@ dialog.notice { border-radius: 2px; }
 .notice-icon { border-radius: 2px; }
 .foot { font-size: 12px; }
 @media (max-width: 560px) { .card { padding: 12px; } .shell { padding: 16px 10px 32px; } }
+
+/* phones: a bit bigger text (13.5px -> 15px), the small labels scaled with it; desktop is unchanged */
+@media (max-width: 600px) {
+  body { font-size: 15px; }
+  h1 { font-size: 18px; }
+  .sub, .card-head p, .note, .muted, .foot, .foot p { font-size: 13.5px; }
+  h2 { font-size: 13.5px; }
+  .k, .info dt, .fw-cards .k, .fw-version .k, .np-look .k, .space-head, .legend { font-size: 12px; }
+  .pills li, .lang, .theme { font-size: 12.5px; }
+  .lang, .theme, .pills li { height: 28px; } .pills li { display: flex; align-items: center; padding: 0 8px; }
+  button, .button, button.primary.big { font-size: 14.5px; }
+  .apps li, .info dd, .fw-cards .v, .od-pick, .opt > span:last-child { font-size: 14px; }
+  .opt > span:last-child .muted, .model-row .muted, .tile .t { font-size: 13px; }
+  .tile .s, .chips li, .chips .tag, .apps .meta { font-size: 12.5px; }
+  .np-tools input, .np-tools select, .np-look input, .np-look select, .fw-version select, dialog input, dialog select { font-size: 14.5px; }
+  dialog h2 { font-size: 14px; } dialog p { font-size: 14px; }
+}
