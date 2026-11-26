@@ -71,7 +71,8 @@
   --shadow: 0 1px 2px var(--shadow-color), 0 6px 24px var(--shadow-color);
   --radius: 16px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
-  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* --font-custom: the font from config.json when there is one (lib/sitefont.js), else the system's */
+  font-family: var(--font-custom, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif);
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); }

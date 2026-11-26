@@ -14,10 +14,12 @@ import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
 import { isAndroid, PICKABLE } from './lib/model.js';
+import { loadSiteFont } from './lib/sitefont.js';
 import { OutdatedFlow, assertFirmwareAllowed, pickFlasher, limitedView, refusalOf } from './lib/gate.js';
 import { t, errText, size as kb, mb, applyDom, initLangSelect, getLang } from './i18n/index.js';
 
 const $ = (s) => document.querySelector(s);
+loadSiteFont();  // (the optional custom font from config.json: lib/sitefont.js)
 applyDom();
 initLangSelect($('#lang'));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };

@@ -382,6 +382,32 @@ test('numplay view: list by default, remembered, and blocked or broken storage n
   assert.equal(loadView({}), 'list', 'no storage at all');
 });
 
+test('site config: a custom font is optional, validated, and only its own origins open the CSP', async () => {
+  const { createRequire } = await import('node:module');
+  const sc = createRequire(import.meta.url)('../siteconfig.js');
+  const { applySiteFont } = await import('../public/lib/sitefont.js');
+  const none = sc.sanitize(null);
+  assert.deepEqual(none, { fontStylesheet: '', fontFamily: '', styleOrigins: [], fontOrigins: [] }, 'absent: defaults');
+  assert.ok(/style-src 'self'; img-src/.test(sc.csp(none)) && /font-src 'self'; connect-src/.test(sc.csp(none)), 'default CSP closed');
+  const ok = sc.sanitize({ fontStylesheet: 'https://fonts.googleapis.com/css2?family=Inter', fontFamily: ' Inter, sans-serif ', fontOrigins: ['https://fonts.gstatic.com', 'http://evil.test', 'javascript:1', 'x'] });
+  assert.equal(ok.fontFamily, 'Inter, sans-serif');
+  assert.deepEqual(ok.fontOrigins, ['https://fonts.googleapis.com', 'https://fonts.gstatic.com']);
+  assert.ok(sc.csp(ok).includes("style-src 'self' https://fonts.googleapis.com;") && sc.csp(ok).includes("font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;"));
+  assert.ok(!sc.csp(ok).includes('evil'));
+  for (const bad of [{ fontStylesheet: 'http://a.test/x.css' }, { fontStylesheet: 'https://u:p@a.test/x.css' }, { fontStylesheet: 'data:text/css,x' }, { fontFamily: 'x; } body { display:none' }, { fontFamily: 'a'.repeat(300) }, [], 'str'])
+    assert.deepEqual(sc.sanitize(bad), none, JSON.stringify(bad).slice(0, 40));
+  assert.deepEqual(sc.load('/no/such/config.json'), none, 'missing file');
+  // the page side: a <link> and a custom property, only for valid values
+  const doc = () => { const made = []; return { made, props: {}, createElement: () => { const e = {}; made.push(e); return e; }, head: { append() {} },
+    documentElement: { style: { setProperty(k, v) { this.p = [k, v]; } } } }; };
+  const d = doc();
+  assert.ok(applySiteFont(d, { fontStylesheet: 'https://fonts.googleapis.com/css2?family=Inter', fontFamily: 'Inter, sans-serif' }));
+  assert.equal(d.made[0].href, 'https://fonts.googleapis.com/css2?family=Inter'); assert.deepEqual(d.documentElement.style.p, ['--font-custom', 'Inter, sans-serif']);
+  const d2 = doc();
+  assert.ok(!applySiteFont(d2, { fontStylesheet: 'javascript:alert(1)', fontFamily: 'a;b{}' }) && !d2.made.length && !d2.documentElement.style.p);
+  assert.ok(!applySiteFont(d2, null) && !applySiteFont(d2, { fontStylesheet: '', fontFamily: '' }));
+});
+
 test('numplay queue: a new NumPlay goes on top and never replaces one already there', () => {
   const app = fs.readFileSync(path.join(repo, 'public', 'app.js'), 'utf8');
   assert.ok(!/st\.queue = st\.queue\.filter\(\(q\) => !q\.numplay\)/.test(app), 'no NumPlay is dropped from the queue');

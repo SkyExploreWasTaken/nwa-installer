@@ -1,6 +1,8 @@
 # your NumWorks account (and the old session-cookie file): never commit them
 numworks-account.json
 numworks-cookie.txt
+# your site config (custom font): copy config.example.json
+config.json
 node_modules/
 # made by npm run setup from NumWorks' nwlink package
 public/vendor/eadk.o

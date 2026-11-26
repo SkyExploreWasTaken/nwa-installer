@@ -9,6 +9,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const numplay = require('./numplay.js');    // the NumPlay builder at /numplay/
 const numworks = require('./numworks.js');  // NumWorks' firmware at /api/firmware/
+const siteconfig = require('./siteconfig.js');  // the optional config.json (a custom font)
 
 const PORT = +(process.argv[2] || process.env.PORT || 8642);
 // host names the server answers to besides localhost, e.g. behind a reverse proxy with https (WebUSB needs a secure
@@ -34,8 +35,9 @@ const BUILD_MODE_JS = Buffer.from('export const NODE_ENV = ' + JSON.stringify(NO
 
 // on every response. The page has no inline scripts or styles (styles set from JS go through the CSSOM, which CSP allows);
 // the linker (vendor/ld.wasm, objcopy.wasm) needs 'wasm-unsafe-eval' to compile WebAssembly.
-const CSP = ["default-src 'self'", "script-src 'self' 'wasm-unsafe-eval'", "style-src 'self'", "img-src 'self' blob: data:",
-  "connect-src 'self'", "worker-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"].join('; ');
+// The only origins it opens beyond 'self' are the ones the optional config.json names for a custom font (siteconfig.js).
+const SITE = siteconfig.load(path.join(__dirname, 'config.json'));
+const CSP = siteconfig.csp(SITE);
 const SECURITY_HEADERS = { 'Content-Security-Policy': CSP, 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer' };
 
@@ -80,6 +82,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, { error: 'No such API', code: 'server.noApi', params: {} });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    if (url.pathname === '/site-config.json') return send(res, 200, { fontStylesheet: SITE.fontStylesheet, fontFamily: SITE.fontFamily });
     if (await numplay(req, res, url)) return;
     serveFile(req, res, url.pathname);
   } catch (e) {

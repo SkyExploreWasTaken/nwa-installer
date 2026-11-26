@@ -131,6 +131,20 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 The page uses Catppuccin: Latte when the system is light, Mocha when it is dark. The picker next to the language one
 (Auto / Latte / Mocha) overrides the system and is remembered in this browser; Auto goes back to following it.
 
+### Custom font (optional)
+Copy `config.example.json` to `config.json` (next to `server.js`, ignored by git) and restart the server:
+```json
+{ "fontStylesheet": "https://fonts.googleapis.com/css2?family=Inter&display=swap", "fontFamily": "Inter, sans-serif",
+  "fontOrigins": ["https://fonts.gstatic.com"] }
+```
+- `fontStylesheet`: an `https://` CSS URL (empty: none). Its origin is added to the Content-Security-Policy's `style-src` and `font-src`.
+- `fontFamily`: the CSS font-family to use (letters, digits, spaces, commas, quotes, `-` and `_` only). Alone, it picks a font
+  already installed on the device.
+- `fontOrigins`: other `https://` origins the stylesheet loads font files from (Google Fonts serves them from `fonts.gstatic.com`).
+
+Absent, empty or invalid: the default system font, nothing is loaded from the web. Using a web font makes the browser
+fetch it from that site, so it learns that you use this page; leave it empty to stay fully local.
+
 ### Test mode and production
 `npm start` (or serve.bat) serves http://localhost:8642/. Without `NODE_ENV=production` these developer URLs work:
 `?mock` (a pretend N0120), `?debug` (state on `window.nwaDebug`), and the TEST MODE, which simulates a calculator,
