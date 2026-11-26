@@ -344,6 +344,28 @@ test('model: manual pick (unknown version, and always on Android), checked again
   assert.ok(!versionMatches('24.5.0', '24.4.0') && !versionMatches('', '24.4.0') && !versionMatches('abc', '24.4.0') && !versionMatches('24.4.0.1', '24.4.0'));
 });
 
+test('page: ids are unique, every dialog the page opens is a <dialog>, and openDialog works without showModal', () => {
+  const html = fs.readFileSync(path.join(repo, 'public', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(repo, 'public', 'app.js'), 'utf8');
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  const dup = ids.filter((id, i) => ids.indexOf(id) !== i);
+  assert.deepEqual(dup, [], 'duplicate ids (querySelector takes the first: a dialog behind a file input has no showModal)');
+  const dialogs = new Set([...html.matchAll(/<dialog\b[^>]*\sid="([^"]+)"/g)].map((m) => m[1]));
+  for (const m of app.matchAll(/const d = \$\('#([\w-]+)'\);/g)) assert.ok(dialogs.has(m[1]), `#${m[1]} is opened as a dialog but isn't a <dialog>`);
+  // openDialog (app.js) with no showModal: opens by attribute, close() closes it and fires 'close'
+  const src = app.match(/function openDialog\(d\) \{[\s\S]*?\r?\n\}\r?\n/)[0];
+  const openDialog = new Function('Event', src + '; return openDialog;')(class { constructor(t) { this.type = t; } });
+  const fake = { attrs: new Set(), ls: {}, returnValue: '', setAttribute(a) { this.attrs.add(a); }, removeAttribute(a) { this.attrs.delete(a); },
+    addEventListener(t, f) { this.ls[t] = f; }, dispatchEvent(e) { this.fired = e.type; } };
+  assert.doesNotThrow(() => openDialog(fake));
+  assert.ok(fake.attrs.has('open'));
+  fake.ls.submit({ preventDefault() {}, submitter: { value: 'N0120' } });
+  assert.equal(fake.returnValue, 'N0120'); assert.ok(!fake.attrs.has('open')); assert.equal(fake.fired, 'close');
+  let shown = 0;
+  openDialog({ showModal() { shown++; } });
+  assert.equal(shown, 1, 'showModal when there is one');
+});
+
 test('model: readInfo with a pick: pickMismatch, and the version entered must be the calculator\'s', async () => {
   const { readInfo } = await import('../public/lib/calc.js');
   const dfu = (dev, layouts) => ({ device: dev, layouts, read: async (a, n) => new Uint8Array(n).fill(0xff) });

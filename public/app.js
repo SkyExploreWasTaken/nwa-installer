@@ -111,10 +111,19 @@ $('#connect').addEventListener('click', () => job('connect', async () => {
 }));
 
 const ANDROID = isAndroid(navigator);
-// The model picker (<dialog id="pick">): one button per model the memories allow, and Cancel. -> the model, or null.
+// showModal, or where a browser has none: the dialog shown with its `open` attribute (close() likewise, with the
+// 'close' event), so the page works anywhere
+function openDialog(d) {
+  if (typeof d.showModal === 'function') return d.showModal();
+  d.setAttribute('open', '');
+  d.close = (rv) => { if (rv !== undefined) d.returnValue = rv; d.removeAttribute('open'); d.dispatchEvent(new Event('close')); };
+  d.addEventListener('submit', (e) => { e.preventDefault(); d.close(e.submitter?.value ?? ''); }, { once: true });
+}
+// The model picker (<dialog id="which-model">): one button per model the memories allow, and Cancel. -> the model, or null.
+// (its id isn't "pick": that's the .nwa file input's, and the first match wins)
 function askModel(models, bcd) {
   return new Promise((done) => {
-    const d = $('#pick');
+    const d = $('#which-model');
     const box = $('#pick-actions');
     const cancel = box.querySelector('[value=cancel]');
     for (const b of box.querySelectorAll('[data-model]')) b.remove();
@@ -133,7 +142,7 @@ function askModel(models, bcd) {
     d.returnValue = '';
     // (a model button with no version typed on Android does nothing: the form refuses an empty required field)
     d.addEventListener('close', () => done(models.includes(d.returnValue) ? { model: d.returnValue, version: v.value.trim() } : null), { once: true });
-    d.showModal();
+    openDialog(d);
   });
 }
 
