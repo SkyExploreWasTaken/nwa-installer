@@ -71,8 +71,8 @@
   --shadow: 0 1px 2px var(--shadow-color);
   --radius: 10px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
-  /* --font-custom: the font from config.json when there is one (lib/sitefont.js), else the system's */
-  font-family: var(--font-custom, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif);
+  /* --font-custom: the font from config.json when there is one (lib/sitefont.js), else the system's monospace */
+  font-family: var(--font-custom, ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace);
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); }
@@ -349,3 +349,82 @@ dialog.notice p { margin: 0; font-size: 17px; line-height: 1.45; font-weight: 60
   background: repeating-linear-gradient(45deg, var(--ctp-yellow) 0 14px, var(--sim-stripe) 14px 28px); font-size: 14px; }
 .sim-badge b, .sim-badge span { background: var(--sim-label-bg); color: var(--sim-label-fg); padding: 3px 8px; border-radius: 6px; }
 .sim-badge b { font-size: 16px; letter-spacing: .06em; }
+
+/* ------------------------------------------------------------------ terminal skin
+   The page's look: a text-mode interface in the spirit of system24 (https://github.com/refact0r/system24, a Discord theme
+   by refact0r): monospace, compact, 1px bordered panels with tiny radii, small uppercase labels, flat surfaces, an accent
+   bar for what is active or focused. Written from scratch (no code or assets from that project), in the Catppuccin
+   colours above only. Last in the file so it wins over the rules before it. */
+:root { --radius: 2px; --gap: 12px; }
+body { font-size: 13.5px; line-height: 1.5; }
+.shell { max-width: 880px; padding: 28px 16px 40px; }
+main { gap: var(--gap); }
+
+/* header: a title bar */
+.top { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); align-items: center; }
+h1 { font-size: 16px; letter-spacing: .02em; text-transform: lowercase; }
+h1::before { content: "> "; color: var(--accent-text); }
+.sub { font-size: 12.5px; }
+.logo { width: 28px; height: 28px; }
+.pills li, .lang, .theme { border-radius: 2px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; }
+.lang, .theme { padding: 4px 8px; }
+
+/* panels */
+.card { border-radius: 2px; box-shadow: none; padding: 14px 16px; border-left: 3px solid var(--ctp-surface1); transition: border-color .15s; }
+.card:focus-within, .card:hover { border-left-color: var(--accent); }
+.card-head { gap: 12px; margin-bottom: 12px; }
+.card-head p { font-size: 12.5px; }
+h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+.step { display: inline-flex; align-items: center; white-space: nowrap; width: auto; height: auto; min-width: 24px; padding: 1px 6px; border-radius: 2px; font-size: 11.5px; border: 1px solid var(--accent); background: none; }
+.step::before { content: "["; } .step::after { content: "]"; }
+.k, .info dt, .fw-cards .k, .fw-version .k, .np-look .k, .space-head { text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.info > div, .fw-cards > div:not(.arrow), .space, .np, .np-own, .apps, .log pre { border-radius: 2px; }
+.info dd { font-size: 12.5px; }
+code { border-radius: 2px; }
+
+/* controls: flat, bordered, square */
+button, .button { border-radius: 2px; font-size: 13px; padding: 7px 12px; }
+button:hover:not(:disabled), .button:hover { border-color: var(--accent); }
+button:active:not(:disabled) { transform: none; }
+button.primary { background: var(--accent); }
+button.primary.big { padding: 9px 20px; font-size: 13.5px; }
+button.ghost, .button.ghost { background: transparent; }
+.np-tools input, .np-tools select, .np-look input, .np-look select, .fw-version select, dialog input, dialog select, dialog textarea { border-radius: 2px; font-size: 13px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.link { text-decoration-thickness: 1px; }
+.seg button:first-child, .seg button:last-child { border-radius: 0; }
+.seg button[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* lists, tiles, chips */
+.apps li { padding: 8px 12px; font-size: 13px; }
+.apps .badge, .np-icon { border-radius: 2px; width: 28px; height: 28px; }
+.apps .x { border-radius: 2px; }
+.tile { border-radius: 2px; }
+.tile img, .tile .ph, .np-variants button img { border-radius: 2px; }
+.np-variants button { border-radius: 2px; }
+.tile[aria-pressed="true"], .od-pick[aria-pressed="true"] { box-shadow: inset 3px 0 0 var(--accent); }
+.tile[aria-pressed="true"]::after { border-radius: 2px; }
+.chips li { border-radius: 2px; }
+.numplay-link { border-radius: 2px; padding: 10px 12px; }
+.numplay-link:hover:not(:disabled) { background: var(--accent-soft); }
+.model-row { border-radius: 2px; }
+.model-row:hover:not(:disabled) { box-shadow: inset 3px 0 0 var(--accent); }
+.drop { border-radius: 2px; }
+
+/* options, bars, progress */
+.opt { border-radius: 2px; padding: 8px 10px; }
+.switch { border-radius: 2px; height: 20px; width: 36px; }
+.switch::after { border-radius: 1px; width: 14px; height: 14px; }
+.opt input:checked + .switch::after { transform: translateX(16px); }
+.bar, .progress { border-radius: 0; box-shadow: none; }
+.legend i { border-radius: 0; }
+.progress { height: 22px; }
+
+/* pop-ups */
+dialog { border-radius: 2px; border-left: 3px solid var(--accent); padding: 18px; }
+dialog h2 { font-size: 13px; }
+.dlg-icon { border-radius: 2px; }
+dialog.notice { border-radius: 2px; }
+.notice-icon { border-radius: 2px; }
+.foot { font-size: 12px; }
+@media (max-width: 560px) { .card { padding: 12px; } .shell { padding: 16px 10px 32px; } }

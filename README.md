@@ -131,6 +131,11 @@ With `npm install` done, these run the page's code against the plugged-in calcul
 The page uses Catppuccin: Latte when the system is light, Mocha when it is dark. The picker next to the language one
 (Auto / Latte / Mocha) overrides the system and is remembered in this browser; Auto goes back to following it.
 
+### Look
+The interface is styled in a text-mode spirit (monospace, compact bordered panels, small uppercase labels, an accent bar
+for what is active), keeping the Catppuccin colours. UI inspired by [system24](https://github.com/refact0r/system24) by
+refact0r, a Discord theme: its look was the reference, no code or assets were copied.
+
 ### Custom font (optional)
 Copy `config.example.json` to `config.json` (next to `server.js`, ignored by git) and restart the server:
 ```json
