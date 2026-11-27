@@ -408,6 +408,27 @@ test('site config: a custom font is optional, validated, and only its own origin
   assert.ok(!applySiteFont(d2, null) && !applySiteFont(d2, { fontStylesheet: '', fontFamily: '' }));
 });
 
+test('slot: decided by the kernel header\'s address; Nwagra says why it is refused', async () => {
+  const { slotInfo, SLOT_B } = await import('../public/lib/calc.js');
+  // the connected N0120 (Epsilon 26.4.0): runs from 0x90400008, in slot B; the app area starts after both slots
+  assert.deepEqual(slotInfo({ kernelHeader: 0x90400008, appsStart: 0x90580000, appsEnd: 0x907f0000 }), { slot: 'B', nwagraOk: false, nwagraReason: 'runsFromB' });
+  // running from slot A, app area between the slots: Nwagra possible
+  assert.deepEqual(slotInfo({ kernelHeader: 0x90000008, appsStart: 0x90200000, appsEnd: 0x90400000 }), { slot: 'A', nwagraOk: true, nwagraReason: null });
+  assert.equal(slotInfo({ kernelHeader: 0x90000008, appsStart: 0x90200000, appsEnd: SLOT_B }).nwagraOk, true, 'ends exactly at slot B: fine');
+  // slot A but the app area already runs past slot B
+  assert.deepEqual(slotInfo({ kernelHeader: 0x90000008, appsStart: 0x90200000, appsEnd: 0x90500000 }), { slot: 'A', nwagraOk: false, nwagraReason: 'appsPastB' });
+  // slot A but its kernel sits above the app area
+  assert.deepEqual(slotInfo({ kernelHeader: 0x90300008, appsStart: 0x90200000, appsEnd: 0x90400000 }), { slot: 'A', nwagraOk: false, nwagraReason: 'kernelAbove' });
+  // every reason has its words in both languages (the page builds the key from the reason)
+  for (const r of ['runsFromB', 'kernelAbove', 'appsPastB']) for (const k of ['info.nwagraNo.', 'opt.nwagra.no.']) {
+    const src = fs.readFileSync(path.join(repo, 'public', 'i18n', 'en.js'), 'utf8') + fs.readFileSync(path.join(repo, 'public', 'i18n', 'fr.js'), 'utf8');
+    assert.equal(src.split(`'${k}${r}'`).length - 1, 2, k + r);
+  }
+  // the update target and its wrongSlot guard take the slot from info.slot, which is now the real one
+  const app = fs.readFileSync(path.join(repo, 'public', 'app.js'), 'utf8');
+  assert.ok(/slots\.length !== 1 \|\| slots\[0\] === i\.slot/.test(app) && (app.match(/i\.slot === 'A' \? 'B' : 'A'/g) || []).length === 2);
+});
+
 test('numplay UI: NumPlay, Retro-Go and NumPico each have their own button, panel and Add; every id the script uses exists', () => {
   const html = fs.readFileSync(path.join(repo, 'public', 'index.html'), 'utf8');
   const ui = fs.readFileSync(path.join(repo, 'public', 'numplay-ui.js'), 'utf8');

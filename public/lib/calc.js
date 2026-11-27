@@ -29,6 +29,18 @@ export const hex = (n) => '0x' + (n >>> 0).toString(16).padStart(8, '0');
 // chosenModel: the model the user picked for a calculator whose USB version isn't known (model.js), checked against its memories
 // manual: the model is always picked (Android, whose USB version can't be trusted). The software version is never asked:
 // it's read from the calculator's own kernel header below, as on a computer.
+// Which slot the calculator runs from, by where its kernel header is (slot A starts at 0x90000000, slot B at SLOT_B), and
+// whether Nwagra's enlarged app space is possible, with the reason when it isn't:
+//  runsFromB: it runs from slot B, which that space would overwrite; kernelAbove: its software is above the app area;
+//  appsPastB: the app area already runs past the start of slot B (no spare copy to take over)
+// (the slot used to be taken from the userland header being below the app area, which is true on Epsilon 26 even when
+// running from slot B, because the app area starts after both slots)
+export function slotInfo({ kernelHeader, appsStart, appsEnd }) {
+  const slot = kernelHeader >= SLOT_B ? 'B' : 'A';
+  const nwagraReason = slot !== 'A' ? 'runsFromB' : kernelHeader >= appsStart ? 'kernelAbove' : appsEnd > SLOT_B ? 'appsPastB' : null;
+  return { slot, nwagraOk: !nwagraReason, nwagraReason };
+}
+
 export async function readInfo(dfu, { chosenModel = null, manual = false } = {}) {
   const productName = dfu.device?.productName || dfu.productName || '';
   const flashStrings = dfu.layouts.map((l) => l.raw).filter(Boolean);
@@ -90,8 +102,7 @@ export async function readInfo(dfu, { chosenModel = null, manual = false } = {})
   // Nwagra: apps may run on past the app area to the end of the flash, when the running software is below the app
   // area (slot A). (On Epsilon 26 too: only NumWorks' installer page gets its size wrong there, NaN.) It writes over
   // the calculator's spare copy of its software, slot B, at 0x90400000: the calculator runs from slot A.
-  info.slot = info.userlandHeader < info.appsStart ? 'A' : 'B';
-  info.nwagraOk = info.slot === 'A' && info.kernelHeader < info.appsStart && info.appsEnd <= SLOT_B;
+  Object.assign(info, slotInfo(info));
   info.nwagraEnd = FLASH_END;
   if (info.nwagraOk) {
     // what's in slot B now: a copy of the software (its version), or apps / nothing

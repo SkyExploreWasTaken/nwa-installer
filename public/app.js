@@ -321,7 +321,7 @@ function render() {
   renderFirmware();
   add(t('info.software'), t('info.softwareVal', { version: i.version, patch: i.patch, slot: i.slot }));
   add(t('info.area'), t('info.areaVal', { start: hex(i.appsStart), end: hex(i.appsEnd), size: i.appsEnd - i.appsStart }));
-  add(t('info.nwagra'), i.nwagraOk ? t('info.areaVal', { start: hex(i.appsStart), end: hex(i.nwagraEnd), size: i.nwagraEnd - i.appsStart }) : t('info.nwagraNo'));
+  add(t('info.nwagra'), i.nwagraOk ? t('info.areaVal', { start: hex(i.appsStart), end: hex(i.nwagraEnd), size: i.nwagraEnd - i.appsStart }) : t('info.nwagraNo.' + i.nwagraReason));
 
   const ul = $('#installed');
   ul.textContent = '';
@@ -339,7 +339,7 @@ function render() {
   nw.disabled = st.busy || !i.nwagraOk;
   if (!i.nwagraOk) nw.checked = false;
   $('#nwagra-opt').classList.toggle('disabled', !i.nwagraOk);
-  $('#nwagra-note').textContent = !i.nwagraOk ? t('opt.nwagra.no')
+  $('#nwagra-note').textContent = !i.nwagraOk ? t('opt.nwagra.no.' + i.nwagraReason)
     : t(i.slotB ? 'opt.nwagra.yesB' : 'opt.nwagra.yes', { size: i.nwagraEnd - i.appsStart, version: i.slotB });
   $('#keep').disabled = st.busy || !st.scan.apps.length;
   $('#keep').closest('.opt').classList.toggle('disabled', !st.scan.apps.length);
