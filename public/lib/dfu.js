@@ -8,19 +8,28 @@ export const State = { appIDLE: 0, appDETACH: 1, dfuIDLE: 2, dfuDNLOAD_SYNC: 3, 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // "@External Flash /0x90000000/08*004Kg,01*032Kg,63*064Kg,64*064Kg" -> [{start, sectorSize, count, readable, ...}]
+// DfuSe lets one string hold several address ranges, each with its own start: the N0120 says
+// "@Flash/0x90000000/08*004Kg,01*032Kg,63*064Kg/0x90430000/61*064Kg" (a hole between them, which isn't listed so it
+// isn't writable). Every range is parsed from its own address; a string with one range reads exactly as before.
 export function parseMemoryLayout(name) {
   const m = /^@([^/]+)\/(0x[0-9a-fA-F]+)\/(.*)$/.exec(name.trim());
   if (!m) return null;
   const segs = [];
-  let addr = parseInt(m[2], 16);
-  for (const part of m[3].split(',')) {
-    const p = /^(\d+)\*(\d+)([ BKM])(.)$/.exec(part.trim());
-    if (!p) continue;
-    const mult = { ' ': 1, B: 1, K: 1024, M: 1048576 }[p[3]];
-    const count = +p[1], size = +p[2] * mult, flags = p[4].charCodeAt(0) - 'a'.charCodeAt(0) + 1;
-    segs.push({ start: addr, end: addr + count * size, sectorSize: size, readable: !!(flags & 1),
-      erasable: !!(flags & 2), writable: !!(flags & 4) });
-    addr += count * size;
+  // [address, list] pairs: the first range, then each "/0xADDR/list" after it
+  const tail = m[3].split('/');
+  const ranges = [[m[2], tail[0]]];
+  for (let i = 1; i + 1 < tail.length; i += 2) if (/^0x[0-9a-fA-F]+$/.test(tail[i].trim())) ranges.push([tail[i].trim(), tail[i + 1]]);
+  for (const [start, list] of ranges) {
+    let addr = parseInt(start, 16);
+    for (const part of list.split(',')) {
+      const p = /^(\d+)\*(\d+)([ BKM])(.)$/.exec(part.trim());
+      if (!p) continue;
+      const mult = { ' ': 1, B: 1, K: 1024, M: 1048576 }[p[3]];
+      const count = +p[1], size = +p[2] * mult, flags = p[4].charCodeAt(0) - 'a'.charCodeAt(0) + 1;
+      segs.push({ start: addr, end: addr + count * size, sectorSize: size, readable: !!(flags & 1),
+        erasable: !!(flags & 2), writable: !!(flags & 4) });
+      addr += count * size;
+    }
   }
   return { name: m[1].trim(), segments: segs, raw: name.trim() };
 }

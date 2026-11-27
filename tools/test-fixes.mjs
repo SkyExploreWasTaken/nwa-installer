@@ -408,6 +408,44 @@ test('site config: a custom font is optional, validated, and only its own origin
   assert.ok(!applySiteFont(d2, null) && !applySiteFont(d2, { fontStylesheet: '', fontFamily: '' }));
 });
 
+test('dfu layout: several "/0xADDR/" ranges are all read (the N0120\'s flash), single ranges as before', async () => {
+  const { parseMemoryLayout, Dfu } = await import('../public/lib/dfu.js');
+  const { writableElements } = await import('../public/lib/dfufile.js');
+  const seg = (l) => l.segments.map((s) => [s.start, s.end, s.sectorSize]);
+  // the N0120's string, exactly as its DFU interface gives it
+  const n0120 = parseMemoryLayout('@Flash/0x90000000/08*004Kg,01*032Kg,63*064Kg/0x90430000/61*064Kg');
+  assert.equal(n0120.name, 'Flash');
+  assert.deepEqual(seg(n0120), [[0x90000000, 0x90008000, 4096], [0x90008000, 0x90010000, 32768], [0x90010000, 0x90400000, 65536], [0x90430000, 0x90800000, 65536]]);
+  assert.ok(n0120.segments.every((s) => s.readable && s.erasable && s.writable));
+  // an older single-range string: unchanged
+  const old = parseMemoryLayout('@Flash/0x90000000/08*004Kg,01*032Kg,63*064Kg,64*064Kg');
+  assert.deepEqual(seg(old), [[0x90000000, 0x90008000, 4096], [0x90008000, 0x90010000, 32768], [0x90010000, 0x90400000, 65536], [0x90400000, 0x90800000, 65536]]);
+  assert.deepEqual(parseMemoryLayout('@SRAM/0x24000000/01*220Ke').segments.map((s) => [s.start, s.end, s.erasable]), [[0x24000000, 0x24037000, false]]);
+  assert.equal(parseMemoryLayout('Flash'), null);
+  // a write across the 0x90010000 boundary is accepted, one into the hole 0x90400000-0x90430000 is refused before any erase
+  const dfu = new Dfu({});
+  dfu.layouts = [n0120, parseMemoryLayout('@SRAM/0x24000000/01*220Ke')].map((l, alt) => ({ ...l, alt }));
+  const erased = []; dfu.selectFor = async () => {}; dfu.eraseSector = async (a) => erased.push(a); dfu.program = async () => {};
+  await dfu.write(0x90000000, new Uint8Array(0x30000));
+  assert.deepEqual(erased, [0x90000000, 0x90001000, 0x90002000, 0x90003000, 0x90004000, 0x90005000, 0x90006000, 0x90007000, 0x90008000, 0x90010000, 0x90020000], 'sectors under 0x30000 bytes from the start');
+  erased.length = 0;
+  await assert.rejects(dfu.write(0x90400000, new Uint8Array(0x10000)), (e) => e.code === 'dfu.notErasable' && e.params.address === '0x90400000');
+  await assert.rejects(dfu.write(0x903f0000, new Uint8Array(0x20000)), (e) => e.code === 'dfu.notErasable' && e.params.address === '0x90400000', 'a write running into the hole');
+  assert.deepEqual(erased, [], 'nothing erased before the check');
+  await dfu.write(0x90430000, new Uint8Array(0x10000));
+  assert.deepEqual(erased, [0x90430000]);
+  assert.ok(!dfu.segmentFor(0x90420000), 'the hole is in no segment');
+  // writableElements takes only elements that start in a writable segment: slot A's, not the hole
+  assert.deepEqual(writableElements([{ address: 0x90000000 }, { address: 0x90010000 }, { address: 0x90400000 }, { address: 0x90430000 }], dfu).map((e) => e.address), [0x90000000, 0x90010000, 0x90430000]);
+  // model detection from these layouts: an N0120 by its RAM and flash, a 1.1.4 descriptor too
+  const layouts = dfu.layouts;
+  assert.deepEqual(detect(usbDev(0x0120), layouts), { model: 'N0120' });
+  assert.deepEqual(detect(usbDev(0x0114), layouts), { model: 'N0120' });
+  assert.deepEqual(detect(usbDev(0x0130), layouts), { refuse: 'calc.unknownModel', bcd: '1.3.0' });
+  const { pickableModels } = await import('../public/lib/model.js');
+  assert.deepEqual(pickableModels({ productName: 'NumWorks Calculator', layouts }), ['N0120']);
+});
+
 test('slot: decided by the kernel header\'s address; Nwagra says why it is refused', async () => {
   const { slotInfo, SLOT_B } = await import('../public/lib/calc.js');
   // the connected N0120 (Epsilon 26.4.0): runs from 0x90400008, in slot B; the app area starts after both slots
