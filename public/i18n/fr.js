@@ -211,6 +211,7 @@ export default {
   'err.http': 'HTTP {status}',
   'err.connect.retry': '{msg}. Débranchez la calculatrice, rebranchez-la, déverrouillez-la, fermez les autres pages qui l’utilisent (comme my.numworks.com), puis reconnectez-la.',
   'err.fw.nothing': 'Rien dans ce firmware ne concerne la partie de la calculatrice qui peut être écrite maintenant',
+  'err.fw.notWritable': 'La partie du firmware à {address} (slot {slot}) n’est pas dans une mémoire que cette calculatrice permet d’écrire : arrêt avant tout effacement.',
   'err.fw.wrongSlot': 'La partie écrivable du firmware est pour le slot {slots}, mais la calculatrice tourne sur le slot {slot} : arrêt',
   'err.fw.check': 'Échec de la vérification en {address}. La calculatrice tourne toujours sur son logiciel actuel : réessayez.',
   'err.numplay.maxGames': 'NumPlay contient {max} jeux et applis au maximum',

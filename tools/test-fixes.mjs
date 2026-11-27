@@ -410,7 +410,7 @@ test('site config: a custom font is optional, validated, and only its own origin
 
 test('dfu layout: several "/0xADDR/" ranges are all read (the N0120\'s flash), single ranges as before', async () => {
   const { parseMemoryLayout, Dfu } = await import('../public/lib/dfu.js');
-  const { writableElements } = await import('../public/lib/dfufile.js');
+  const { writableElements } = await import('../public/lib/dfufile.js'); // (kept for the outdated-firmware flow)
   const seg = (l) => l.segments.map((s) => [s.start, s.end, s.sectorSize]);
   // the N0120's string, exactly as its DFU interface gives it
   const n0120 = parseMemoryLayout('@Flash/0x90000000/08*004Kg,01*032Kg,63*064Kg/0x90430000/61*064Kg');
@@ -444,6 +444,38 @@ test('dfu layout: several "/0xADDR/" ranges are all read (the N0120\'s flash), s
   assert.deepEqual(detect(usbDev(0x0130), layouts), { refuse: 'calc.unknownModel', bcd: '1.3.0' });
   const { pickableModels } = await import('../public/lib/model.js');
   assert.deepEqual(pickableModels({ productName: 'NumWorks Calculator', layouts }), ['N0120']);
+});
+
+test('update target: only the other slot firmware parts, each sector writable; nothing of the running slot', async () => {
+  const { parseMemoryLayout, Dfu } = await import('../public/lib/dfu.js');
+  const { elementsForSlot, slotOf } = await import('../public/lib/dfufile.js');
+  const dfuWith = (flash) => { const d = new Dfu({}); d.layouts = [parseMemoryLayout(flash)].map((l) => ({ ...l, alt: 0 })); return d; };
+  // running from B: the N0120's real layout (its own header block 0x90400000-0x90430000 is a hole)
+  const runningB = dfuWith('@Flash/0x90000000/08*004Kg,01*032Kg,63*064Kg/0x90430000/61*064Kg');
+  // running from A (a layout of the same kind with the hole at A's header block; assumed, to test the other direction)
+  const runningA = dfuWith('@Flash/0x90030000/61*064Kg/0x90400000/64*064Kg');
+  const el = (address, size) => ({ address, data: new Uint8Array(size) });
+  const fw = [el(0x90000000, 0x30000), el(0x90030000, 0x10000), el(0x90400000, 0x30000), el(0x90430000, 0x20000)];
+  assert.deepEqual([0x90000000, 0x903fffff, 0x90400000, 0x90430000].map(slotOf), ['A', 'A', 'B', 'B']);
+  // running from B: only A parts, even though 0x90430000 (slot B body) is writable in the layout
+  assert.deepEqual(elementsForSlot(fw, runningB, 'A').map((e) => e.address), [0x90000000, 0x90030000]);
+  // running from A: only B parts
+  assert.deepEqual(elementsForSlot(fw, runningA, 'B').map((e) => e.address), [0x90400000, 0x90430000]);
+  // a part in the protected hole (here: slot B asked for on the running-from-B layout): refused, with its address
+  await assert.rejects(async () => elementsForSlot(fw, runningB, 'B'), (e) => e.code === 'fw.notWritable' && e.params.address === '0x90400000' && e.params.slot === 'B');
+  // a slot A part running on into the slot B area is refused
+  await assert.rejects(async () => elementsForSlot([el(0x903f0000, 0x20000)], runningB, 'A'), (e) => e.code === 'fw.notWritable' && e.params.address === '0x90400000');
+  // a slot A part inside A but not in the layout's writable memory (the running-from-A layout) is refused too
+  await assert.rejects(async () => elementsForSlot([el(0x90000000, 0x1000)], runningA, 'A'), (e) => e.code === 'fw.notWritable' && e.params.address === '0x90000000');
+  // no part for the target slot
+  await assert.rejects(async () => elementsForSlot([el(0x90400000, 0x1000)], runningB, 'A'), (e) => e.code === 'fw.nothing');
+  await assert.rejects(async () => elementsForSlot([], runningB, 'A'), (e) => e.code === 'fw.nothing');
+  // in the update (app.js) the order is: the parts chosen and the wrongSlot guard first, the files backup and every write after
+  const app = fs.readFileSync(path.join(repo, 'public', 'app.js'), 'utf8');
+  const at = (s, from = 0) => app.indexOf(s, from);
+  const guard = at("uiError('fw.wrongSlot'");
+  assert.ok(at('Firmware parts:') > 0 && at('Firmware parts:') < at('elementsForSlot(all, st.dfu, target)') && at('elementsForSlot(all, st.dfu, target)') < guard);
+  assert.ok(guard < at('download(raw, `numworks-files-', guard) && guard < at('st.dfu.write(', guard));
 });
 
 test('slot: decided by the kernel header\'s address; Nwagra says why it is refused', async () => {

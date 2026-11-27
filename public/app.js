@@ -9,7 +9,7 @@ import { loadTools, inspectNwa } from './lib/link.js';
 import { planInstall, writeInstall } from './lib/install.js';
 import { parseStorage, buildStorage, recordSize, MAX_RECORD } from './lib/storage.js';
 import { firmwareChoices } from './lib/fwchoice.js';
-import { parseDfuFile, writableElements } from './lib/dfufile.js';
+import { parseDfuFile, writableElements, elementsForSlot, slotOf } from './lib/dfufile.js';
 import { InstallerError } from './lib/errors.js';
 import { initNumPlay } from './numplay-ui.js';
 import { devFlags } from './lib/env.js';
@@ -451,7 +451,6 @@ async function finish() {
 // The local server (numworks.js) fetches NumWorks' official firmware, signed in with the account in numworks-account.json.
 // Its .dfu holds both slots; as NumWorks' updater does, only the slot the calculator isn't running from can be
 // written (the part inside the memory its DFU interface shows), and it restarts on it.
-const slotOf = (addr) => (addr >= SLOT_B ? 'B' : 'A');
 
 $('#fw-check').addEventListener('click', () => job('fwcheck', async () => {
   st.fw = null;
@@ -543,8 +542,11 @@ $('#fw-install').addEventListener('click', async () => {
     bar('progress.downloading')(0);
     const r = await fetch(MOCK ? 'dev/mock/fw.dfu' : `api/firmware/${i.model}.dfu?version=${encodeURIComponent(f.name)}&channel=${encodeURIComponent(f.channel || 'stable')}`);
     if (!r.ok) throw serverError(await r.json().catch(() => ({})), r.status);
-    const elements = writableElements(parseDfuFile(new Uint8Array(await r.arrayBuffer())), st.dfu);
-    if (!elements.length) throw uiError('fw.nothing', {}, 'Nothing in that firmware is for the part of the calculator that can be written now');
+    const all = parseDfuFile(new Uint8Array(await r.arrayBuffer()));
+    // what the firmware holds, before anything is chosen, so a failure shows it
+    log(`Firmware parts: ${all.map((e) => hex(e.address) + ' (' + e.data.length + ' bytes, slot ' + slotOf(e.address) + ')').join(', ')}; the calculator runs from slot ${i.slot}, so slot ${target} is written`);
+    // only the other slot's parts, each sector of them checked writable (lib/dfufile.js); then the last guard: never the running slot
+    const elements = elementsForSlot(all, st.dfu, target);
     const slots = [...new Set(elements.map((e) => slotOf(e.address)))];
     if (slots.length !== 1 || slots[0] === i.slot) throw uiError('fw.wrongSlot', { slots: slots.join('+'), slot: i.slot }, `The firmware's writable part is for slot ${slots.join('+')}, but the calculator runs from slot ${i.slot}: stopping`);
     log(`Firmware: ${elements.map((e) => hex(e.address) + ' (' + e.data.length + ' bytes)').join(', ')} for slot ${slots[0]}`);

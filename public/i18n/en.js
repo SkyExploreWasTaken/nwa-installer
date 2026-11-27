@@ -209,6 +209,7 @@ export default {
   'err.http': 'HTTP {status}',
   'err.connect.retry': '{msg}. Unplug the calculator, plug it back in, unlock it, close other pages that use it (like my.numworks.com), then Connect again.',
   'err.fw.nothing': 'Nothing in that firmware is for the part of the calculator that can be written now',
+  'err.fw.notWritable': "The firmware part at {address} (slot {slot}) isn't in memory this calculator lets us write: stopping before anything is erased.",
   'err.fw.wrongSlot': "The firmware's writable part is for slot {slots}, but the calculator runs from slot {slot}: stopping",
   'err.fw.check': 'Check failed at {address}. The calculator still runs its current software: try again.',
   'err.numplay.maxGames': 'NumPlay holds {max} games and apps at most',
