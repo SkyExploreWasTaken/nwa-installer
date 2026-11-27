@@ -16,6 +16,8 @@ everything runs on your computer: the page talks to the calculator over WebUSB a
 Works in Chrome and Edge (they have WebUSB) with calculators running Epsilon 16 or later. Tested on an N0120 with
 Epsilon 26.4.
 
+More detail is in [docs/](docs/README.md): setup, the update step by step, config files, the server, testing and troubleshooting.
+
 ## Run it
 You need [Node.js](https://nodejs.org).
 
